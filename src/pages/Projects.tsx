@@ -1,340 +1,316 @@
-import { useState } from "react";
-import { useParams, NavLink } from "react-router-dom";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useState } from 'react';
+import { Link } from 'react-router-dom';
+import { useAuth } from '@/contexts/AuthContext';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { 
-  MapPin, 
-  Calendar, 
-  Users, 
-  Leaf, 
-  Camera, 
-  FileText, 
-  TrendingUp,
-  ArrowLeft,
-  ExternalLink,
-  Download
-} from "lucide-react";
+  Plus,
+  Search,
+  MapPin,
+  Calendar,
+  Leaf,
+  CheckCircle,
+  Clock,
+  XCircle,
+  Eye,
+  Edit,
+  Trash2,
+  Download,
+  BarChart3
+} from 'lucide-react';
+import { toast } from 'sonner';
+
+// Mock projects data - will be replaced with API calls
+const mockProjects = [
+  {
+    id: '1',
+    title: 'Sundarbans Mangrove Restoration',
+    description: 'Large-scale mangrove restoration covering 150 hectares in the Sundarbans region.',
+    ecosystem: 'MANGROVE',
+    location: 'West Bengal, India',
+    area: 150,
+    status: 'VERIFIED',
+    carbonCreditsEstimated: 2500,
+    carbonCreditsIssued: 2500,
+    createdAt: '2024-01-15T00:00:00Z',
+  },
+  {
+    id: '2',
+    title: 'Kerala Seagrass Conservation',
+    description: 'Seagrass meadow restoration and conservation project along Kerala coast.',
+    ecosystem: 'SEAGRASS',
+    location: 'Kerala, India',
+    area: 75,
+    status: 'PENDING',
+    carbonCreditsEstimated: 1200,
+    carbonCreditsIssued: 0,
+    createdAt: '2024-02-10T00:00:00Z',
+  },
+  {
+    id: '3',
+    title: 'Gujarat Salt Marsh Rehabilitation',
+    description: 'Restoration of degraded salt marsh ecosystems in Gujarat.',
+    ecosystem: 'SALT_MARSH',
+    location: 'Gujarat, India',
+    area: 200,
+    status: 'REJECTED',
+    carbonCreditsEstimated: 1800,
+    carbonCreditsIssued: 0,
+    createdAt: '2024-01-05T00:00:00Z',
+  }
+];
 
 const Projects = () => {
-  const { id } = useParams();
-  
-  // Mock data - would come from API in real app
-  const projects = [
-    {
-      id: "1",
-      name: "Sundarbans Mangrove Restoration",
-      location: "West Bengal, India",
-      area: "2,500 hectares",
-      organization: "Sundarbans Foundation",
-      organizationType: "NGO",
-      status: "verified",
-      carbonCredits: 125000,
-      startDate: "2023-01-15",
-      lastUpdated: "2024-09-20",
-      progress: 78,
-      description: "Large-scale mangrove restoration project in the Sundarbans delta region focusing on climate resilience and biodiversity conservation.",
-      species: ["Rhizophora mucronata", "Avicennia marina", "Sonneratia apetala"],
-      verifications: [
-        { date: "2024-09-20", status: "verified", verifier: "NCCR", credits: 25000 },
-        { date: "2024-06-15", status: "verified", verifier: "NCCR", credits: 50000 },
-        { date: "2024-03-10", status: "verified", verifier: "NCCR", credits: 50000 }
-      ],
-      media: [
-        { type: "image", url: "/api/placeholder/400/300", caption: "Mangrove seedlings plantation" },
-        { type: "drone", url: "/api/placeholder/600/400", caption: "Aerial view of restoration site" },
-        { type: "image", url: "/api/placeholder/400/300", caption: "Community involvement" }
-      ]
+  const { user } = useAuth();
+  const [projects] = useState(mockProjects);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [ecosystemFilter, setEcosystemFilter] = useState<string>('all');
+
+  // Filter projects
+  const filteredProjects = projects.filter(project => {
+    const matchesSearch = project.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         project.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         project.location.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    const matchesStatus = statusFilter === 'all' || project.status === statusFilter;
+    const matchesEcosystem = ecosystemFilter === 'all' || project.ecosystem === ecosystemFilter;
+    
+    return matchesSearch && matchesStatus && matchesEcosystem;
+  });
+
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'VERIFIED': return <CheckCircle className="h-4 w-4 text-green-600" />;
+      case 'PENDING': return <Clock className="h-4 w-4 text-yellow-600" />;
+      case 'REJECTED': return <XCircle className="h-4 w-4 text-red-600" />;
+      default: return <Clock className="h-4 w-4" />;
     }
-  ];
+  };
 
-  const project = id ? projects.find(p => p.id === id) : null;
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'VERIFIED': return 'default';
+      case 'PENDING': return 'secondary';
+      case 'REJECTED': return 'destructive';
+      default: return 'secondary';
+    }
+  };
 
-  if (id && !project) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold mb-4">Project Not Found</h1>
-          <p className="text-muted-foreground mb-4">The requested project could not be found.</p>
-          <Button asChild>
-            <NavLink to="/projects">Back to Projects</NavLink>
-          </Button>
-        </div>
-      </div>
-    );
-  }
+  const getEcosystemColor = (ecosystem: string) => {
+    switch (ecosystem) {
+      case 'MANGROVE': return 'bg-green-100 text-green-800';
+      case 'SEAGRASS': return 'bg-blue-100 text-blue-800';
+      case 'SALT_MARSH': return 'bg-purple-100 text-purple-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
 
-  if (project) {
-    return (
-      <div className="min-h-screen">
-        {/* Project Header */}
-        <section className="bg-gradient-to-br from-primary/5 via-secondary/5 to-background py-8 px-4">
-          <div className="mx-auto max-w-7xl">
-            <div className="flex items-center gap-4 mb-6">
-              <Button variant="outline" size="icon" asChild>
-                <NavLink to="/projects">
-                  <ArrowLeft className="h-4 w-4" />
-                </NavLink>
-              </Button>
-              <div>
-                <h1 className="text-3xl font-bold">{project.name}</h1>
-                <div className="flex items-center gap-4 mt-2 text-muted-foreground">
-                  <div className="flex items-center gap-1">
-                    <MapPin className="h-4 w-4" />
-                    <span>{project.location}</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <Calendar className="h-4 w-4" />
-                    <span>Started {new Date(project.startDate).toLocaleDateString()}</span>
-                  </div>
-                  <Badge variant={project.status === "verified" ? "default" : "secondary"}>
-                    {project.status}
-                  </Badge>
-                </div>
-              </div>
-            </div>
+  const handleDeleteProject = (id: string) => {
+    toast.success('Project deleted successfully');
+  };
 
-            {/* Key Metrics */}
-            <div className="grid gap-4 md:grid-cols-4">
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">Area</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{project.area}</div>
-                </CardContent>
-              </Card>
-              
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">Carbon Credits</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{project.carbonCredits.toLocaleString()}</div>
-                </CardContent>
-              </Card>
-              
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">Progress</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{project.progress}%</div>
-                  <Progress value={project.progress} className="mt-2" />
-                </CardContent>
-              </Card>
-              
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">Organization</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="font-semibold">{project.organization}</div>
-                  <div className="text-sm text-muted-foreground">{project.organizationType}</div>
-                </CardContent>
-              </Card>
-            </div>
-          </div>
-        </section>
+  const stats = {
+    total: projects.length,
+    verified: projects.filter(p => p.status === 'VERIFIED').length,
+    pending: projects.filter(p => p.status === 'PENDING').length,
+    totalCredits: projects.reduce((sum, p) => sum + p.carbonCreditsIssued, 0)
+  };
 
-        {/* Project Details */}
-        <section className="py-8 px-4">
-          <div className="mx-auto max-w-7xl">
-            <Tabs defaultValue="overview" className="space-y-8">
-              <TabsList className="grid w-full grid-cols-4">
-                <TabsTrigger value="overview">Overview</TabsTrigger>
-                <TabsTrigger value="timeline">Timeline</TabsTrigger>
-                <TabsTrigger value="media">Media</TabsTrigger>
-                <TabsTrigger value="verification">Verification</TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="overview" className="space-y-6">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Project Description</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-muted-foreground leading-relaxed">{project.description}</p>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Species Information</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex flex-wrap gap-2">
-                      {project.species.map((species, index) => (
-                        <Badge key={index} variant="outline">{species}</Badge>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-
-              <TabsContent value="timeline" className="space-y-6">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Project Timeline</CardTitle>
-                    <CardDescription>Track progress and milestones</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      {project.verifications.map((verification, index) => (
-                        <div key={index} className="flex items-center gap-4 p-4 border rounded-lg">
-                          <div className="h-3 w-3 rounded-full bg-primary"></div>
-                          <div className="flex-1">
-                            <div className="font-medium">Verification Completed</div>
-                            <div className="text-sm text-muted-foreground">
-                              {verification.credits.toLocaleString()} credits verified by {verification.verifier}
-                            </div>
-                            <div className="text-xs text-muted-foreground">
-                              {new Date(verification.date).toLocaleDateString()}
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-
-              <TabsContent value="media" className="space-y-6">
-                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                  {project.media.map((item, index) => (
-                    <Card key={index}>
-                      <CardContent className="p-0">
-                        <div className="aspect-video bg-muted rounded-t-lg flex items-center justify-center">
-                          <Camera className="h-8 w-8 text-muted-foreground" />
-                        </div>
-                        <div className="p-4">
-                          <p className="text-sm font-medium">{item.caption}</p>
-                          <Badge variant="outline" className="mt-2">
-                            {item.type === "drone" ? "Drone Footage" : "Photo"}
-                          </Badge>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              </TabsContent>
-
-              <TabsContent value="verification" className="space-y-6">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Verification History</CardTitle>
-                    <CardDescription>Blockchain-verified milestones and carbon credit generation</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      {project.verifications.map((verification, index) => (
-                        <div key={index} className="flex items-center justify-between p-4 border rounded-lg">
-                          <div>
-                            <div className="font-medium">
-                              {verification.credits.toLocaleString()} Carbon Credits Generated
-                            </div>
-                            <div className="text-sm text-muted-foreground">
-                              Verified by {verification.verifier} on {new Date(verification.date).toLocaleDateString()}
-                            </div>
-                          </div>
-                          <div className="flex gap-2">
-                            <Button variant="outline" size="sm">
-                              <ExternalLink className="h-4 w-4 mr-1" />
-                              View on Blockchain
-                            </Button>
-                            <Button variant="outline" size="sm">
-                              <Download className="h-4 w-4 mr-1" />
-                              Certificate
-                            </Button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-            </Tabs>
-          </div>
-        </section>
-      </div>
-    );
-  }
-
-  // Projects listing page
   return (
-    <div className="min-h-screen">
-      {/* Page Header */}
-      <section className="bg-gradient-to-br from-primary/5 via-secondary/5 to-background py-12 px-4">
-        <div className="mx-auto max-w-7xl">
-          <div className="text-center mb-8">
-            <h1 className="text-4xl font-bold tracking-tight mb-4">
-              Blue Carbon Projects
-            </h1>
-            <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
-              Detailed view of individual restoration projects with progress tracking, 
-              verification history, and impact measurements.
-            </p>
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <section className="bg-gradient-to-r from-blue-600 to-cyan-600 text-white py-12">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold">My Projects</h1>
+              <p className="mt-2 text-blue-100">
+                Manage your blue carbon restoration projects
+              </p>
+            </div>
+            <Button className="bg-white text-blue-600 hover:bg-gray-100" asChild>
+              <Link to="/submit">
+                <Plus className="mr-2 h-4 w-4" />
+                New Project
+              </Link>
+            </Button>
           </div>
         </div>
       </section>
 
-      {/* Projects Grid */}
-      <section className="py-8 px-4">
-        <div className="mx-auto max-w-7xl">
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {projects.map((project) => (
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
+        {/* Stats */}
+        <div className="grid gap-4 md:grid-cols-4 mb-8">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Projects</CardTitle>
+              <BarChart3 className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.total}</div>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Verified</CardTitle>
+              <CheckCircle className="h-4 w-4 text-green-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-green-600">{stats.verified}</div>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Pending</CardTitle>
+              <Clock className="h-4 w-4 text-yellow-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-yellow-600">{stats.pending}</div>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Credits Earned</CardTitle>
+              <Leaf className="h-4 w-4 text-green-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.totalCredits.toLocaleString()}</div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Filters */}
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle>Filter Projects</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-col md:flex-row gap-4">
+              <div className="flex-1 relative">
+                <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search projects..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-full md:w-[150px]">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="VERIFIED">Verified</SelectItem>
+                  <SelectItem value="PENDING">Pending</SelectItem>
+                  <SelectItem value="REJECTED">Rejected</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={ecosystemFilter} onValueChange={setEcosystemFilter}>
+                <SelectTrigger className="w-full md:w-[150px]">
+                  <SelectValue placeholder="Ecosystem" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Types</SelectItem>
+                  <SelectItem value="MANGROVE">Mangrove</SelectItem>
+                  <SelectItem value="SEAGRASS">Seagrass</SelectItem>
+                  <SelectItem value="SALT_MARSH">Salt Marsh</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Projects List */}
+        {filteredProjects.length === 0 ? (
+          <Card>
+            <CardContent className="flex flex-col items-center justify-center py-16">
+              <Leaf className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+              <h3 className="text-lg font-medium mb-2">No projects found</h3>
+              <p className="text-gray-500 mb-6">Start by submitting your first project</p>
+              <Button asChild>
+                <Link to="/submit">
+                  <Plus className="mr-2 h-4 w-4" />
+                  Submit Project
+                </Link>
+              </Button>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="space-y-4">
+            {filteredProjects.map((project) => (
               <Card key={project.id} className="hover:shadow-lg transition-shadow">
-                <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <CardTitle className="text-lg">{project.name}</CardTitle>
-                      <CardDescription className="mt-1">
-                        <div className="flex items-center gap-1">
-                          <MapPin className="h-3 w-3" />
+                <CardContent className="p-6">
+                  <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-2">
+                        <h3 className="text-lg font-semibold">{project.title}</h3>
+                        <Badge variant={getStatusColor(project.status)}>
+                          {getStatusIcon(project.status)}
+                          <span className="ml-1">{project.status}</span>
+                        </Badge>
+                        <Badge className={getEcosystemColor(project.ecosystem)}>
+                          {project.ecosystem.toLowerCase().replace('_', ' ')}
+                        </Badge>
+                      </div>
+                      
+                      <p className="text-gray-600 mb-3">{project.description}</p>
+                      
+                      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
+                        <div className="flex items-center text-gray-500">
+                          <MapPin className="h-4 w-4 mr-1" />
                           {project.location}
                         </div>
-                      </CardDescription>
-                    </div>
-                    <Badge variant={project.status === "verified" ? "default" : "secondary"}>
-                      {project.status}
-                    </Badge>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4 text-sm">
-                      <div>
-                        <div className="text-muted-foreground">Area</div>
-                        <div className="font-medium">{project.area}</div>
-                      </div>
-                      <div>
-                        <div className="text-muted-foreground">Credits</div>
-                        <div className="font-medium">{project.carbonCredits.toLocaleString()}</div>
+                        <div className="flex items-center text-gray-500">
+                          <BarChart3 className="h-4 w-4 mr-1" />
+                          {project.area} hectares
+                        </div>
+                        <div className="flex items-center text-gray-500">
+                          <Leaf className="h-4 w-4 mr-1" />
+                          {project.carbonCreditsIssued.toLocaleString()} credits
+                        </div>
+                        <div className="flex items-center text-gray-500">
+                          <Calendar className="h-4 w-4 mr-1" />
+                          {new Date(project.createdAt).toLocaleDateString()}
+                        </div>
                       </div>
                     </div>
                     
-                    <div>
-                      <div className="flex justify-between text-sm mb-2">
-                        <span className="text-muted-foreground">Progress</span>
-                        <span>{project.progress}%</span>
-                      </div>
-                      <Progress value={project.progress} />
+                    <div className="flex items-center gap-2">
+                      <Button variant="outline" size="sm" asChild>
+                        <Link to={`/projects/${project.id}`}>
+                          <Eye className="h-3 w-3 mr-1" />
+                          View
+                        </Link>
+                      </Button>
+                      <Button variant="outline" size="sm">
+                        <Edit className="h-3 w-3 mr-1" />
+                        Edit
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => handleDeleteProject(project.id)}
+                        className="text-red-600 hover:text-red-700"
+                      >
+                        <Trash2 className="h-3 w-3 mr-1" />
+                        Delete
+                      </Button>
                     </div>
-
-                    <Button asChild className="w-full">
-                      <NavLink to={`/projects/${project.id}`}>
-                        View Details
-                      </NavLink>
-                    </Button>
                   </div>
                 </CardContent>
               </Card>
             ))}
           </div>
-        </div>
-      </section>
+        )}
+      </div>
     </div>
   );
 };

@@ -1,17 +1,28 @@
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Waves, Leaf, Shield, BarChart3 } from "lucide-react";
-import heroImage from "@/assets/hero-mangroves.jpg";
+import { Link } from 'react-router-dom';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { useAuth } from '@/contexts/AuthContext';
+import { 
+  ArrowRight, 
+  Waves, 
+  Shield, 
+  Leaf, 
+  BarChart3 
+} from 'lucide-react';
 
 const HeroSection = () => {
+  const { isAuthenticated } = useAuth();
+
   return (
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
       {/* Background Image */}
-      <div 
-        className="absolute inset-0 bg-cover bg-center bg-no-repeat"
-        style={{ backgroundImage: `url(${heroImage})` }}
-      >
-        <div className="absolute inset-0 bg-gradient-to-br from-ocean/80 via-ocean/60 to-nature/80" />
+      <div className="absolute inset-0">
+        <img 
+          src='assets/hero-mangroves.jpg'
+          alt="Mangrove forest coastal ecosystem"
+          className="w-full h-full object-cover"
+        />
+        <div className="absolute inset-0 bg-gradient-to-br from-blue-900/80 via-cyan-800/70 to-teal-900/80" />
       </div>
       
       {/* Content */}
@@ -35,14 +46,37 @@ const HeroSection = () => {
         </p>
         
         <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
-          <Button size="lg" variant="secondary" className="bg-white text-ocean hover:bg-blue-50 shadow-elegant">
-            <BarChart3 className="w-5 h-5 mr-2" />
-            View Registry
-          </Button>
-          <Button size="lg" variant="outline" className="border-white text-white hover:bg-white/10 backdrop-blur-sm">
-            <Waves className="w-5 h-5 mr-2" />
-            Upload Data
-          </Button>
+          {isAuthenticated ? (
+            <>
+              <Button size="lg" className="bg-white text-blue-600 hover:bg-blue-50 shadow-lg" asChild>
+                <Link to="/submit">
+                  <BarChart3 className="w-5 h-5 mr-2" />
+                  Submit Project
+                </Link>
+              </Button>
+              <Button size="lg" variant="outline" className="border-white text-white hover:bg-white/10 backdrop-blur-sm" asChild>
+                <Link to="/projects">
+                  <Waves className="w-5 h-5 mr-2" />
+                  My Projects
+                </Link>
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button size="lg" className="bg-white text-blue-600 hover:bg-blue-50 shadow-lg" asChild>
+                <Link to="/register">
+                  <BarChart3 className="w-5 h-5 mr-2" />
+                  Get Started
+                </Link>
+              </Button>
+              <Button size="lg" variant="outline" className="border-white text-black hover:bg-white/10 backdrop-blur-sm" asChild>
+                <Link to="/registry">
+                  <Waves className="w-5 h-5 mr-2" />
+                  Explore Registry
+                </Link>
+              </Button>
+            </>
+          )}
         </div>
         
         {/* Stats */}
