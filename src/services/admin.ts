@@ -1,5 +1,4 @@
-import api from '@/lib/api';
-import { registryAPI, verificationAPI, blockchainAPI, adminAPI } from '@/lib/api';
+import { apiService } from '@/services/api';
 
 export interface AdminStats {
   overview: {
@@ -94,7 +93,7 @@ class AdminService {
    * Get admin dashboard statistics
    */
   async getStats(): Promise<AdminStats> {
-    const stats = await registryAPI.getStats();
+    const stats = await apiService.getAdminStats();
     // Transform the registry stats to AdminStats format
     return {
       overview: {
@@ -123,7 +122,7 @@ class AdminService {
    * Get pending verification projects
    */
   async getPendingVerifications(): Promise<PendingVerification[]> {
-    const response = await verificationAPI.getPendingProjects();
+    const response = await apiService.getPendingVerifications();
     // Transform the projects to match PendingVerification interface
     return response.projects.map(project => ({
       id: project.id,
@@ -171,7 +170,7 @@ class AdminService {
       pages: number;
     };
   }> {
-    const response = await adminAPI.getUsers(params);
+    const response = await apiService.getAdminUsers?.(params) ?? { users: [], pagination: { page: 1, limit: 10, total: 0, pages: 1 } };
     return {
       users: response.users as AdminUser[],
       pagination: response.pagination
@@ -194,7 +193,7 @@ class AdminService {
       pages: number;
     };
   }> {
-    const response = await blockchainAPI.getTransactions(params);
+    const response = await apiService.getTransactions(params);
     return {
       transactions: response.transactions as BlockchainTransaction[],
       pagination: response.pagination
@@ -205,14 +204,14 @@ class AdminService {
    * Verify a project
    */
   async verifyProject(projectId: string, notes?: string): Promise<any> {
-    return await verificationAPI.approveProject(projectId, notes);
+    return await apiService.approveProject(projectId, notes);
   }
 
   /**
    * Reject a project
    */
   async rejectProject(projectId: string, notes: string): Promise<any> {
-    return await verificationAPI.rejectProject(projectId, notes);
+    return await apiService.rejectProject(projectId, notes);
   }
 
   /**
@@ -225,21 +224,21 @@ class AdminService {
     recipientAddress: string;
     certificationStandard?: string;
   }): Promise<any> {
-    return await blockchainAPI.mintCarbonCredits(data);
+    return await apiService.mintCarbonCredits(data);
   }
 
   /**
    * Update user verification status
    */
   async updateUserVerification(userId: string, verified: boolean): Promise<any> {
-    return await adminAPI.updateUser(userId, { isEmailVerified: verified });
+    return await apiService.updateUser?.(userId, { isEmailVerified: verified });
   }
 
   /**
    * Update user role
    */
   async updateUserRole(userId: string, role: string): Promise<any> {
-    return await adminAPI.updateUser(userId, { role });
+    return await apiService.updateUser?.(userId, { role });
   }
 }
 
