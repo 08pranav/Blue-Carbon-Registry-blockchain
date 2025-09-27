@@ -57,6 +57,8 @@ export function SubmitProjectWizard() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [cameraActive, setCameraActive] = useState(false)
+  const [cameraStarting, setCameraStarting] = useState(false)
+  const [cameraMsg, setCameraMsg] = useState<string | null>(null)
 
   // UX state
   const [errors, setErrors] = useState<string[]>([])
@@ -95,27 +97,45 @@ export function SubmitProjectWizard() {
   }
 
   const startCamera = async () => {
+    setCameraStarting(true)
+    setCameraMsg('Initializing camera…')
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: deviceId ? { deviceId: { exact: deviceId } } : {
-          facingMode: { ideal: 'environment' },
-          width: { ideal: 1280 },
-          height: { ideal: 720 }
-        },
-        audio: false
-      })
-      if (videoRef.current) {
+      let stream: MediaStream | null = null
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: deviceId ? { deviceId: { exact: deviceId } } : {
+            facingMode: { ideal: 'environment' },
+            width: { ideal: 1280 },
+            height: { ideal: 720 }
+          },
+          audio: false
+        })
+      } catch (primaryErr) {
+        // Fallback to any available video device
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+        } catch (fallbackErr) {
+          throw fallbackErr
+        }
+      }
+      if (videoRef.current && stream) {
         const v = videoRef.current
         v.srcObject = stream
-        // Improve autoplay compatibility on Safari/iOS
         v.muted = true
-        // play() can reject if not allowed; ignore error
+        v.playsInline = true as any
+        setCameraMsg('Starting preview…')
         try { await v.play() } catch {}
         setCameraActive(true)
+        setCameraMsg(null)
+        await refreshDevices()
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error('getUserMedia error:', e)
-      setErrors(prev => [...prev, 'Camera access denied or unavailable. Use file upload instead.'])
+      const msg = e?.message || 'Camera access denied or unavailable. Use file upload instead.'
+      setErrors(prev => [...prev, msg])
+      setCameraMsg(msg)
+    } finally {
+      setCameraStarting(false)
     }
   }
   const stopCamera = () => {
@@ -345,7 +365,9 @@ export function SubmitProjectWizard() {
           {step === 2 && (
             <Card><CardHeader><CardTitle>Evidence</CardTitle><CardDescription>Capture photos or upload</CardDescription></CardHeader><CardContent className="space-y-4">
               <div className="flex items-center gap-2">
-                <Button type="button" onClick={cameraActive ? stopCamera : startCamera}>{cameraActive ? 'Stop Camera' : 'Start Camera'}</Button>
+                <Button type="button" onClick={cameraActive ? stopCamera : startCamera} disabled={cameraStarting}>
+                  {cameraStarting ? (<><Loader2 className="h-4 w-4 mr-2 animate-spin" />Starting…</>) : (cameraActive ? 'Stop Camera' : 'Start Camera')}
+                </Button>
                 <Select value={deviceId || ''} onValueChange={(v) => { setDeviceId(v); if (cameraActive) { stopCamera(); startCamera(); } }}>
                   <SelectTrigger className="w-52"><SelectValue placeholder="Select Camera" /></SelectTrigger>
                   <SelectContent>
@@ -360,9 +382,17 @@ export function SubmitProjectWizard() {
                     <SelectItem value="current">Current</SelectItem>
                   </SelectContent>
                 </Select>
+                {cameraActive && (
+                  <Button type="button" onClick={capture}>
+                    <Camera className="h-4 w-4 mr-2" /> Capture Photo
+                  </Button>
+                )}
                 <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()}><Upload className="h-4 w-4 mr-2" />Upload</Button>
                 <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={onFiles} />
               </div>
+              {cameraMsg && (
+                <div className="text-xs text-gray-600">{cameraMsg}</div>
+              )}
               {cameraActive && (
                 <div className="border rounded p-2">
                   <video
