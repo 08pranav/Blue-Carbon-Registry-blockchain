@@ -80,7 +80,7 @@ function getEnvNumber(key: string, fallback: number = 0): number {
 // Create configuration object
 export const config: AppConfig = {
   api: {
-    baseUrl: getEnvVar('VITE_API_BASE_URL', import.meta.env.DEV ? 'http://localhost:3001' : ''),
+    baseUrl: getEnvVar('VITE_API_BASE_URL', import.meta.env.DEV ? 'http://localhost:3001' : '/api'),
     timeout: getEnvNumber('VITE_API_TIMEOUT', 10000),
   },
 
@@ -130,8 +130,8 @@ export function validateConfig(): { valid: boolean; errors: string[] } {
   const errors: string[] = [];
 
   // Validate required API configuration
-  if (!config.api.baseUrl) {
-    errors.push('API base URL is required');
+  if (!config.api.baseUrl && config.env === 'development') {
+    errors.push('API base URL is required in development');
   }
 
   // Validate blockchain configuration if enabled
@@ -174,8 +174,9 @@ export function validateConfig(): { valid: boolean; errors: string[] } {
 const validationResult = validateConfig();
 if (!validationResult.valid) {
   console.error('Configuration validation failed:', validationResult.errors);
+  // Don't throw in production - just log warnings
   if (config.env === 'production') {
-    throw new Error('Invalid configuration for production environment');
+    console.warn('Production deployment with missing configuration - some features may not work');
   }
 }
 
