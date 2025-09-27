@@ -38,6 +38,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { Switch } from '@/components/ui/switch';
 
 interface VerificationProject {
   id: string;
@@ -97,9 +98,16 @@ export function VerificationDashboard({ className }: VerificationDashboardProps)
   const [verificationDecision, setVerificationDecision] = useState<'VERIFIED' | 'REJECTED'>('VERIFIED');
   const [processing, setProcessing] = useState(false);
   const [activeTab, setActiveTab] = useState('pending');
+  const [shortlistOnly, setShortlistOnly] = useState(false);
 
   useEffect(() => {
     fetchVerificationData();
+  }, []);
+
+  // Auto-refresh every 15 seconds
+  useEffect(() => {
+    const id = setInterval(fetchVerificationData, 15000);
+    return () => clearInterval(id);
   }, []);
 
   const fetchVerificationData = async () => {
@@ -259,7 +267,8 @@ export function VerificationDashboard({ className }: VerificationDashboardProps)
     const matchesPriority = priorityFilter === 'all' || 
       (project.priority || '').toLowerCase() === priorityFilter.toLowerCase();
     
-    return matchesSearch && matchesStatus && matchesPriority;
+    const matchesAi = !shortlistOnly || project.aiDecision?.status === 'SHORTLIST';
+    return matchesSearch && matchesStatus && matchesPriority && matchesAi;
   });
 
   if (!user || user.role !== 'AUDITOR') {
@@ -351,7 +360,7 @@ export function VerificationDashboard({ className }: VerificationDashboardProps)
       {/* Filters */}
       <Card>
         <CardContent className="p-4">
-          <div className="flex flex-col lg:flex-row gap-4">
+          <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
               <Input
@@ -386,6 +395,11 @@ export function VerificationDashboard({ className }: VerificationDashboardProps)
                 <SelectItem value="low">Low Priority</SelectItem>
               </SelectContent>
             </Select>
+
+            <div className="flex items-center gap-2 ml-auto">
+              <Switch id="shortlist-only" checked={shortlistOnly} onCheckedChange={setShortlistOnly} />
+              <label htmlFor="shortlist-only" className="text-sm text-gray-600">Shortlist only</label>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -513,6 +527,8 @@ export function VerificationDashboard({ className }: VerificationDashboardProps)
                       <Button
                         size="sm"
                         onClick={() => handleStartReview(project.id)}
+                        disabled={project.aiDecision?.status !== 'SHORTLIST'}
+                        title={project.aiDecision?.status !== 'SHORTLIST' ? 'Only shortlisted items can start review' : ''}
                       >
                         <Zap className="h-4 w-4 mr-2" />
                         Start Review
@@ -594,21 +610,49 @@ export function VerificationDashboard({ className }: VerificationDashboardProps)
               <div>
                 <h4 className="font-semibold mb-3">Evidence Files</h4>
                 <div className="space-y-2">
-                  {selectedProject.evidenceFiles?.map((file) => (
-                    <div key={file.id} className="flex items-center justify-between p-2 border rounded">
-                      <div className="flex items-center gap-2">
-                        <FileText className="h-4 w-4 text-blue-500" />
-                        <span className="font-medium">{file.name}</span>
-                        <span className="text-xs text-gray-500">
-                          ({(file.size / 1024 / 1024).toFixed(1)} MB)
-                        </span>
+{selectedProject.evidenceFiles?.map((file) => {
+                    const isImg = (file.type || '').startsWith('image') && file.url;
+                    const ext = (file.type || '').split('/')[1]?.toUpperCase?.() || 'FILE';
+                    return (
+                      <div key={file.id} className="flex items-center justify-between p-2 border rounded">
+                        <div className="flex items-center gap-2">
+                          {isImg ? (
+                            <img src={`${process.env.NODE_ENV === 'production' ? 'https://api.bluecarbon.org' : 'http://localhost:3001'}${file.url}`} alt={file.name} className="h-10 w-14 object-cover rounded" />
+                          ) : (
+                            <FileText className="h-4 w-4 text-blue-500" />
+                          )}
+                          <div>
+                            <div className="text-sm font-medium">{file.name}</div>
+                            <div className="text-xs text-gray-500">
+                              <span className={`px-2 py-0.5 rounded-full border mr-2 ${isImg ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-gray-50 text-gray-700 border-gray-200'}`}>{ext}</span>
+                              {file.size ? `${(file.size / 1024 / 1024).toFixed(1)} MB` : ''}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
+                          {file.url && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="text-blue-600"
+                              onClick={() => window.open(`${process.env.NODE_ENV === 'production' ? 'https://api.bluecarbon.org' : 'http://localhost:3001'}${file.url}`, '_blank')}
+                            >
+                              <ExternalLink className="h-3 w-3 mr-1" />
+                              View
+                            </Button>
+                          )}
+                          {file.url && (
+                            <a href={`${process.env.NODE_ENV === 'production' ? 'https://api.bluecarbon.org' : 'http://localhost:3001'}${file.url}`} download>
+                              <Button variant="outline" size="sm">
+                                <Download className="h-3 w-3 mr-1" />
+                                Download
+                              </Button>
+                            </a>
+                          )}
+                        </div>
                       </div>
-                      <Button variant="outline" size="sm">
-                        <Download className="h-3 w-3 mr-1" />
-                        Download
-                      </Button>
-                    </div>
-                  )) || (
+                    );
+                  }) || (
                     <p className="text-gray-500">No evidence files available</p>
                   )}
                 </div>

@@ -34,6 +34,7 @@ import {
   RefreshCw,
   Loader2
 } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -62,6 +63,7 @@ const AdminDashboard = () => {
   const [pendingVerifications, setPendingVerifications] = useState<Verification[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [shortlistOnly, setShortlistOnly] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
 
   // Fetch admin data from backend
@@ -297,14 +299,24 @@ const AdminDashboard = () => {
             <div className="grid gap-8 lg:grid-cols-2">
               <Card>
                 <CardHeader>
-                  <CardTitle className="flex items-center">
-                    <Activity className="w-5 h-5 mr-2" />
-                    Pending Verifications
-                  </CardTitle>
-                  <CardDescription>Projects awaiting admin review</CardDescription>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="flex items-center">
+                        <Activity className="w-5 h-5 mr-2" />
+                        Pending Verifications
+                      </CardTitle>
+                      <CardDescription>Projects awaiting admin review</CardDescription>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Switch id="admin-shortlist-only" checked={shortlistOnly} onCheckedChange={setShortlistOnly} />
+                      <label htmlFor="admin-shortlist-only" className="text-sm text-gray-600">Shortlist only</label>
+                    </div>
+                  </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {pendingVerifications.map(v => (
+                  {pendingVerifications
+                    .filter(v => !shortlistOnly || v.aiDecision?.status === 'SHORTLIST')
+                    .map(v => (
                     <div key={v.id} className="flex items-center justify-between p-4 border rounded-lg">
                       <div>
                         <h4 className="font-semibold flex items-center gap-2">

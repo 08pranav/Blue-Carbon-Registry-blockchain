@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { apiService, type Project } from '@/services/api';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { toast } from 'sonner';
 
 const ProjectDetails = () => {
   const { id: urlId } = useParams<{ id: string }>();
@@ -31,6 +32,7 @@ const ProjectDetails = () => {
   const [project, setProject] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -147,6 +149,21 @@ const ProjectDetails = () => {
   const submittedAt = project.submissionDate || project.createdAt;
   const evidence = project.evidenceFiles || [];
 
+  const handleReRunAi = async () => {
+    if (!project?.id) return;
+    try {
+      setAiLoading(true);
+      const { aiReview } = await apiService.getAiReview(project.id);
+      setProject((prev: any) => ({ ...(prev || {}), aiReview }));
+      toast.success(`AI review: ${aiReview.status}`);
+    } catch (err: any) {
+      console.error('AI review failed', err);
+      toast.error(err?.message || 'Failed to re-run AI review');
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Project Header */}
@@ -233,6 +250,49 @@ const ProjectDetails = () => {
               </CardContent>
             </Card>
 
+            {/* AI Evidence Review */}
+            <Card>
+              <CardHeader>
+                <CardTitle>AI Evidence Review</CardTitle>
+                <CardDescription>Automatic checks to assist verification and pre-screening</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center justify-between mb-3">
+                  <div className="text-sm">
+                    {project.aiReview ? (
+                      <>
+                        <span>Status: </span>
+                        <span className="font-semibold">{project.aiReview.status}</span>
+                        <span className="ml-2 text-gray-500">Score: {project.aiReview.score}</span>
+                      </>
+                    ) : (
+                      <span className="text-gray-500">No AI review data yet.</span>
+                    )}
+                  </div>
+                  <Button variant="outline" size="sm" onClick={handleReRunAi} disabled={aiLoading}>
+                    {aiLoading ? 'Running…' : 'Re-run AI Review'}
+                  </Button>
+                </div>
+
+                {project.aiReview && (
+                  <div className="space-y-2 max-h-56 overflow-auto">
+                    {project.aiReview.results.map((r: any, i: number) => (
+                      <div key={i} className="text-xs p-2 border rounded">
+                        <div className="font-medium">{r.file}</div>
+                        {r.ok ? (
+                          <div className="text-green-600">Passed</div>
+                        ) : (
+                          <ul className="list-disc ml-4 text-red-600">
+                            {r.issues.map((iss: string, j: number) => <li key={j}>{iss}</li>)}
+                          </ul>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
             {/* Evidence Files */}
             <Card>
               <CardHeader>
@@ -243,37 +303,48 @@ const ProjectDetails = () => {
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {evidence.map((file: any) => (
-                    <div key={file.id} className="flex items-center justify-between p-3 border rounded-lg">
-                      <div className="flex items-center space-x-3">
-                        <FileText className="h-5 w-5 text-gray-400" />
-                        <div>
-                          <div className="font-medium">{file.name || file.originalName || file.filename}</div>
-                          <div className="text-sm text-gray-500">
-                            {(file.type || file.mimetype || '').split('/')[1]?.toUpperCase?.() || 'FILE'}{file.size ? ` • ${formatFileSize(file.size)}` : ''}
+                  {evidence.map((file: any) => {
+                    const isImg = (file.type || file.mimetype || '').startsWith('image') && file.url;
+                    const ext = (file.type || file.mimetype || '').split('/')[1]?.toUpperCase?.() || 'FILE';
+                    return (
+                      <div key={file.id} className="flex items-center justify-between p-3 border rounded-lg">
+                        <div className="flex items-center space-x-3">
+                          {isImg ? (
+                            <img src={file.url} alt={file.name || file.originalName || file.filename} className="h-12 w-16 object-cover rounded" />
+                          ) : (
+                            <FileText className="h-5 w-5 text-gray-400" />
+                          )}
+                          <div>
+                            <div className="font-medium">{file.name || file.originalName || file.filename}</div>
+                            <div className="text-sm text-gray-500">
+                              <span className={`px-2 py-0.5 rounded-full border mr-2 ${
+                                isImg ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-gray-50 text-gray-700 border-gray-200'
+                              }`}>{ext}</span>
+                              {file.size ? formatFileSize(file.size) : ''}
+                            </div>
                           </div>
                         </div>
+                        <div className="flex space-x-2">
+                          {file.url && (
+                            <a href={file.url} target="_blank" rel="noreferrer">
+                              <Button variant="outline" size="sm">
+                                <ExternalLink className="h-3 w-3 mr-1" />
+                                View
+                              </Button>
+                            </a>
+                          )}
+                          {file.url && (
+                            <a href={file.url} download>
+                              <Button variant="outline" size="sm">
+                                <Download className="h-3 w-3 mr-1" />
+                                Download
+                              </Button>
+                            </a>
+                          )}
+                        </div>
                       </div>
-                      <div className="flex space-x-2">
-                        {file.url && (
-                          <a href={file.url} target="_blank" rel="noreferrer">
-                            <Button variant="outline" size="sm">
-                              <ExternalLink className="h-3 w-3 mr-1" />
-                              View
-                            </Button>
-                          </a>
-                        )}
-                        {file.url && (
-                          <a href={file.url} download>
-                            <Button variant="outline" size="sm">
-                              <Download className="h-3 w-3 mr-1" />
-                              Download
-                            </Button>
-                          </a>
-                        )}
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </CardContent>
             </Card>

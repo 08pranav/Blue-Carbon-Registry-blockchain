@@ -40,6 +40,7 @@ const Projects = () => {
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [showDetails, setShowDetails] = useState(false);
   const [aiLoadingId, setAiLoadingId] = useState<string | null>(null);
+  const [aiFilters, setAiFilters] = useState<{ APPROVE: boolean; NEEDS_REVIEW: boolean; REJECT: boolean }>({ APPROVE: true, NEEDS_REVIEW: true, REJECT: true });
 
   // Fetch projects from backend
   const fetchProjects = async () => {
@@ -82,8 +83,11 @@ const Projects = () => {
     
     const matchesStatus = statusFilter === 'all' || project.status === statusFilter;
     const matchesEcosystem = ecosystemFilter === 'all' || project.ecosystem === ecosystemFilter;
+
+    const aiStatus = project.aiReview?.status as 'APPROVE' | 'NEEDS_REVIEW' | 'REJECT' | undefined;
+    const matchesAi = !aiStatus || (aiStatus && aiFilters[aiStatus]);
     
-    return matchesSearch && matchesStatus && matchesEcosystem;
+    return matchesSearch && matchesStatus && matchesEcosystem && matchesAi;
   });
 
   const getStatusIcon = (status: string) => {
@@ -342,6 +346,28 @@ const Projects = () => {
                   <SelectItem value="SALT_MARSH">Salt Marsh</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+
+            {/* AI status filter chips */}
+            <div className="mt-4 flex flex-wrap gap-2">
+              <button
+                className={`px-3 py-1 rounded-full text-sm border ${aiFilters.APPROVE ? 'bg-green-100 text-green-800 border-green-200' : 'bg-white text-gray-600'} hover:bg-green-50`}
+                onClick={() => setAiFilters(prev => ({ ...prev, APPROVE: !prev.APPROVE }))}
+              >
+                AI: Approve
+              </button>
+              <button
+                className={`px-3 py-1 rounded-full text-sm border ${aiFilters.NEEDS_REVIEW ? 'bg-yellow-100 text-yellow-800 border-yellow-200' : 'bg-white text-gray-600'} hover:bg-yellow-50`}
+                onClick={() => setAiFilters(prev => ({ ...prev, NEEDS_REVIEW: !prev.NEEDS_REVIEW }))}
+              >
+                AI: Needs Review
+              </button>
+              <button
+                className={`px-3 py-1 rounded-full text-sm border ${aiFilters.REJECT ? 'bg-red-100 text-red-800 border-red-200' : 'bg-white text-gray-600'} hover:bg-red-50`}
+                onClick={() => setAiFilters(prev => ({ ...prev, REJECT: !prev.REJECT }))}
+              >
+                AI: Reject
+              </button>
             </div>
           </CardContent>
         </Card>
