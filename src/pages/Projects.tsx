@@ -1,11 +1,14 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { apiService, type Project } from '@/services/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { 
   Plus,
   Search,
@@ -19,56 +22,44 @@ import {
   Edit,
   Trash2,
   Download,
-  BarChart3
+  BarChart3,
+  AlertTriangle,
+  RefreshCw
 } from 'lucide-react';
 import { toast } from 'sonner';
 
-// Mock projects data - will be replaced with API calls
-const mockProjects = [
-  {
-    id: '1',
-    title: 'Sundarbans Mangrove Restoration',
-    description: 'Large-scale mangrove restoration covering 150 hectares in the Sundarbans region.',
-    ecosystem: 'MANGROVE',
-    location: 'West Bengal, India',
-    area: 150,
-    status: 'VERIFIED',
-    carbonCreditsEstimated: 2500,
-    carbonCreditsIssued: 2500,
-    createdAt: '2024-01-15T00:00:00Z',
-  },
-  {
-    id: '2',
-    title: 'Kerala Seagrass Conservation',
-    description: 'Seagrass meadow restoration and conservation project along Kerala coast.',
-    ecosystem: 'SEAGRASS',
-    location: 'Kerala, India',
-    area: 75,
-    status: 'PENDING',
-    carbonCreditsEstimated: 1200,
-    carbonCreditsIssued: 0,
-    createdAt: '2024-02-10T00:00:00Z',
-  },
-  {
-    id: '3',
-    title: 'Gujarat Salt Marsh Rehabilitation',
-    description: 'Restoration of degraded salt marsh ecosystems in Gujarat.',
-    ecosystem: 'SALT_MARSH',
-    location: 'Gujarat, India',
-    area: 200,
-    status: 'REJECTED',
-    carbonCreditsEstimated: 1800,
-    carbonCreditsIssued: 0,
-    createdAt: '2024-01-05T00:00:00Z',
-  }
-];
-
 const Projects = () => {
   const { user } = useAuth();
-  const [projects] = useState(mockProjects);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [ecosystemFilter, setEcosystemFilter] = useState<string>('all');
+
+  // Fetch projects from backend
+  const fetchProjects = async () => {
+    if (!user) return;
+    
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await apiService.getProjects({
+        role: user.role,
+        userId: user.id
+      });
+      setProjects(response.projects);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch projects');
+      console.error('Error fetching projects:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchProjects();
+  }, [user]);
 
   // Filter projects
   const filteredProjects = projects.filter(project => {
@@ -110,15 +101,32 @@ const Projects = () => {
   };
 
   const handleDeleteProject = (id: string) => {
+    // TODO: Implement project deletion API call
     toast.success('Project deleted successfully');
+  };
+
+  const handleRefresh = () => {
+    fetchProjects();
   };
 
   const stats = {
     total: projects.length,
     verified: projects.filter(p => p.status === 'VERIFIED').length,
     pending: projects.filter(p => p.status === 'PENDING').length,
-    totalCredits: projects.reduce((sum, p) => sum + p.carbonCreditsIssued, 0)
+    totalCredits: projects.reduce((sum, p) => sum + (p.carbonCreditsIssued || 0), 0)
   };
+
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <Card className="w-96">
+          <CardContent className="pt-6">
+            <p className="text-center text-gray-600">Please log in to view your projects.</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -132,17 +140,48 @@ const Projects = () => {
                 Manage your blue carbon restoration projects
               </p>
             </div>
-            <Button className="bg-white text-blue-600 hover:bg-gray-100" asChild>
-              <Link to="/submit">
-                <Plus className="mr-2 h-4 w-4" />
-                New Project
-              </Link>
-            </Button>
+            <div className="flex gap-2">
+              <Button 
+                variant="outline" 
+                onClick={handleRefresh}
+                disabled={loading}
+                className="bg-white/10 border-white/20 text-white hover:bg-white/20"
+              >
+                <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+                Refresh
+              </Button>
+              {user.role === 'NGO' && (
+                <Button className="bg-white text-blue-600 hover:bg-gray-100" asChild>
+                  <Link to="/submit">
+                    <Plus className="mr-2 h-4 w-4" />
+                    New Project
+                  </Link>
+                </Button>
+              )}
+            </div>
           </div>
         </div>
       </section>
 
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
+        {/* Error State */}
+        {error && (
+          <Alert className="mb-6">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertDescription>
+              {error}
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleRefresh}
+                className="ml-2"
+              >
+                Try Again
+              </Button>
+            </AlertDescription>
+          </Alert>
+        )}
+
         {/* Stats */}
         <div className="grid gap-4 md:grid-cols-4 mb-8">
           <Card>
@@ -151,7 +190,11 @@ const Projects = () => {
               <BarChart3 className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.total}</div>
+              {loading ? (
+                <Skeleton className="h-8 w-16" />
+              ) : (
+                <div className="text-2xl font-bold">{stats.total}</div>
+              )}
             </CardContent>
           </Card>
           
@@ -161,7 +204,11 @@ const Projects = () => {
               <CheckCircle className="h-4 w-4 text-green-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-green-600">{stats.verified}</div>
+              {loading ? (
+                <Skeleton className="h-8 w-16" />
+              ) : (
+                <div className="text-2xl font-bold text-green-600">{stats.verified}</div>
+              )}
             </CardContent>
           </Card>
           
@@ -171,7 +218,11 @@ const Projects = () => {
               <Clock className="h-4 w-4 text-yellow-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-yellow-600">{stats.pending}</div>
+              {loading ? (
+                <Skeleton className="h-8 w-16" />
+              ) : (
+                <div className="text-2xl font-bold text-yellow-600">{stats.pending}</div>
+              )}
             </CardContent>
           </Card>
           
@@ -181,7 +232,11 @@ const Projects = () => {
               <Leaf className="h-4 w-4 text-green-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.totalCredits.toLocaleString()}</div>
+              {loading ? (
+                <Skeleton className="h-8 w-16" />
+              ) : (
+                <div className="text-2xl font-bold">{stats.totalCredits.toLocaleString()}</div>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -229,18 +284,58 @@ const Projects = () => {
         </Card>
 
         {/* Projects List */}
-        {filteredProjects.length === 0 ? (
+        {loading ? (
+          <div className="space-y-4">
+            {Array.from({ length: 3 }).map((_, index) => (
+              <Card key={index}>
+                <CardContent className="p-6">
+                  <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-2">
+                        <Skeleton className="h-6 w-48" />
+                        <Skeleton className="h-5 w-16" />
+                        <Skeleton className="h-5 w-20" />
+                      </div>
+                      <Skeleton className="h-4 w-full mb-2" />
+                      <Skeleton className="h-4 w-3/4 mb-3" />
+                      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                        <Skeleton className="h-4 w-24" />
+                        <Skeleton className="h-4 w-20" />
+                        <Skeleton className="h-4 w-16" />
+                        <Skeleton className="h-4 w-20" />
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <Skeleton className="h-8 w-16" />
+                      <Skeleton className="h-8 w-16" />
+                      <Skeleton className="h-8 w-16" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        ) : filteredProjects.length === 0 ? (
           <Card>
             <CardContent className="flex flex-col items-center justify-center py-16">
               <Leaf className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-              <h3 className="text-lg font-medium mb-2">No projects found</h3>
-              <p className="text-gray-500 mb-6">Start by submitting your first project</p>
-              <Button asChild>
-                <Link to="/submit">
-                  <Plus className="mr-2 h-4 w-4" />
-                  Submit Project
-                </Link>
-              </Button>
+              <h3 className="text-lg font-medium mb-2">
+                {projects.length === 0 ? 'No projects yet' : 'No projects match your filters'}
+              </h3>
+              <p className="text-gray-500 mb-6">
+                {projects.length === 0 
+                  ? 'Start by submitting your first project' 
+                  : 'Try adjusting your search filters'
+                }
+              </p>
+              {projects.length === 0 && user.role === 'NGO' && (
+                <Button asChild>
+                  <Link to="/submit">
+                    <Plus className="mr-2 h-4 w-4" />
+                    Submit Project
+                  </Link>
+                </Button>
+              )}
             </CardContent>
           </Card>
         ) : (
@@ -274,35 +369,47 @@ const Projects = () => {
                         </div>
                         <div className="flex items-center text-gray-500">
                           <Leaf className="h-4 w-4 mr-1" />
-                          {project.carbonCreditsIssued.toLocaleString()} credits
+                          {(project.carbonCreditsIssued || 0).toLocaleString()} credits
                         </div>
                         <div className="flex items-center text-gray-500">
                           <Calendar className="h-4 w-4 mr-1" />
-                          {new Date(project.createdAt).toLocaleDateString()}
+                          {new Date(project.submissionDate).toLocaleDateString()}
                         </div>
                       </div>
                     </div>
                     
                     <div className="flex items-center gap-2">
                       <Button variant="outline" size="sm" asChild>
-                        <Link to={`/projects/${project.id}`}>
+                        <Link to={`/project-details?id=${project.id}`}>
                           <Eye className="h-3 w-3 mr-1" />
                           View
                         </Link>
                       </Button>
-                      <Button variant="outline" size="sm">
-                        <Edit className="h-3 w-3 mr-1" />
-                        Edit
-                      </Button>
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        onClick={() => handleDeleteProject(project.id)}
-                        className="text-red-600 hover:text-red-700"
-                      >
-                        <Trash2 className="h-3 w-3 mr-1" />
-                        Delete
-                      </Button>
+                      {user.role === 'NGO' && project.submitterId === user.id && (
+                        <>
+                          <Button variant="outline" size="sm">
+                            <Edit className="h-3 w-3 mr-1" />
+                            Edit
+                          </Button>
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={() => handleDeleteProject(project.id)}
+                            className="text-red-600 hover:text-red-700"
+                          >
+                            <Trash2 className="h-3 w-3 mr-1" />
+                            Delete
+                          </Button>
+                        </>
+                      )}
+                      {(user.role === 'ADMIN' || user.role === 'AUDITOR') && project.status === 'PENDING' && (
+                        <Button variant="outline" size="sm" asChild>
+                          <Link to={`/verification?id=${project.id}`}>
+                            <CheckCircle className="h-3 w-3 mr-1" />
+                            Review
+                          </Link>
+                        </Button>
+                      )}
                     </div>
                   </div>
                 </CardContent>

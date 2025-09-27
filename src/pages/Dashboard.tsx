@@ -25,6 +25,7 @@ import { Link, useLocation } from "react-router-dom";
 import { type UserRole, hasPermission, PERMISSIONS, getRoleDisplayName, getRoleDescription } from "@/lib/permissions";
 import { useEffect } from "react";
 import { toast } from "sonner";
+import { ProjectStatusTracking } from "@/components/ProjectStatusTracking";
 
 const Dashboard = () => {
   const { user, userRole } = useAuth();
@@ -329,6 +330,13 @@ const Dashboard = () => {
             </Card>
           </div>
         </div>
+        
+        {/* NGO-specific Project Status Tracking */}
+        {currentRole === 'NGO' && (
+          <div className="mt-8">
+            <ProjectStatusTracking />
+          </div>
+        )}
       </div>
     </div>
   );

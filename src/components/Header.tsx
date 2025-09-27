@@ -30,7 +30,8 @@ import {
   BarChart3,
   Globe,
   Coins,
-  RefreshCw
+  RefreshCw,
+  Map
 } from "lucide-react";
 import { useState } from "react";
 import { type UserRole, PERMISSIONS, hasPermission, getRoleDisplayName } from "@/lib/permissions";
@@ -42,6 +43,7 @@ const landingNavigation = [
   { name: "About", href: "/about", icon: Globe },
   { name: "How It Works", href: "/how-it-works", icon: BarChart3 },
   { name: "Public Registry", href: "/registry", icon: Database },
+  { name: "Map", href: "/map", icon: Map },
 ];
 
 // Role-based navigation for authenticated users
@@ -75,6 +77,9 @@ const getRoleBasedNavigation = (userRole: UserRole | null) => {
   
   // Registry - public view for everyone
   navigation.push({ name: "Registry", href: "/registry", icon: Database });
+  
+  // Map - project visualization for everyone
+  navigation.push({ name: "Map", href: "/map", icon: Map });
   
   // Analytics - for those with view analytics permission
   if (hasPermission(userRole, PERMISSIONS.VIEW_ANALYTICS)) {

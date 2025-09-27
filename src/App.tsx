@@ -4,7 +4,9 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
-import Header from "@/components/Header";
+import Layout from "@/components/Layout";
+import ErrorBoundary from "@/components/ErrorBoundary";
+import { Web3Provider } from "@/blockchain/wallet";
 import Home from "./pages/Home";
 import Registry from "./pages/Registry";
 import Projects from "./pages/Projects";
@@ -19,23 +21,32 @@ import Dashboard from "./pages/Dashboard";
 import Verification from "./pages/Verification";
 import Analytics from "./pages/Analytics";
 import Marketplace from "./pages/Marketplace";
+import AdminDashboard from "./pages/AdminDashboard";
+import Map from "./pages/Map";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
+const WagmiProviderWrapper = ({ children }: { children: React.ReactNode }) => (
+  <Web3Provider>{children}</Web3Provider>
+);
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <AuthProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <div className="min-h-screen bg-background">
-            <Header />
-            <Routes>
+    <WagmiProviderWrapper>
+      <TooltipProvider>
+        <ErrorBoundary>
+          <AuthProvider>
+            <Toaster />
+            <Sonner />
+            <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+              <Layout>
+              <Routes>
+              {/* Public Routes */}
               <Route path="/" element={<Home />} />
               <Route path="/registry" element={<Registry />} />
+              <Route path="/map" element={<Map />} />
               <Route path="/auth-demo" element={<AuthDemo />} />
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
@@ -82,13 +93,25 @@ const App = () => (
                   <Admin />
                 </ProtectedRoute>
               } />
+              <Route path="/admin-dashboard" element={
+                <ProtectedRoute requireAdmin>
+                  <AdminDashboard />
+                </ProtectedRoute>
+              } />
+              <Route path="/admin/stats" element={
+                <ProtectedRoute requireAdmin>
+                  <AdminDashboard />
+                </ProtectedRoute>
+              } />
               
               <Route path="*" element={<NotFound />} />
             </Routes>
-          </div>
-        </BrowserRouter>
-      </AuthProvider>
-    </TooltipProvider>
+              </Layout>
+            </BrowserRouter>
+          </AuthProvider>
+        </ErrorBoundary>
+      </TooltipProvider>
+    </WagmiProviderWrapper>
   </QueryClientProvider>
 );
 

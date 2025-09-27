@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { apiService, type AdminStats, type User, type Project } from '@/services/api';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -29,122 +30,66 @@ import {
   Calendar,
   MapPin,
   DollarSign,
-  Activity
+  Activity,
+  RefreshCw,
+  Loader2
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { EnhancedVerificationInterface } from '@/components/EnhancedVerificationInterface';
+import { BlockchainInterface } from '@/components/BlockchainInterface';
+import { VerificationDashboard } from '@/components/VerificationDashboard';
 
-// Mock data for demonstration - will be replaced with API calls
-const mockStats = {
-  totalUsers: 1247,
-  totalProjects: 892,
-  pendingVerification: 23,
-  verifiedProjects: 756,
-  rejectedProjects: 13,
-  totalCarbonCredits: 125690,
-  activeCredits: 98450,
-  retiredCredits: 27240,
-  totalRevenue: 2840000,
-  monthlyGrowth: 12.5
-};
+// Data types for admin dashboard
+interface AdminUser extends User {
+  _count: {
+    submittedProjects: number;
+  };
+}
 
-const mockUsers = [
-  {
-    id: '1',
-    name: 'Coastal Conservation NGO',
-    email: 'info@coastalconservation.org',
-    role: 'NGO',
-    organization: 'Coastal Conservation Trust',
-    location: 'Kerala, India',
-    projectsCount: 15,
-    creditsEarned: 12500,
-    lastActive: '2024-03-15',
-    status: 'active'
-  },
-  {
-    id: '2',
-    name: 'ClimateCorp Industries',
-    email: 'procurement@climatecorp.com',
-    role: 'BUYER',
-    organization: 'ClimateCorp Industries',
-    location: 'California, USA',
-    projectsCount: 0,
-    creditsEarned: 0,
-    lastActive: '2024-03-14',
-    status: 'active'
-  },
-  {
-    id: '3',
-    name: 'Dr. Michael Chen',
-    email: 'michael@auditfirm.com',
-    role: 'AUDITOR',
-    organization: 'Global Audit Partners',
-    location: 'Singapore',
-    projectsCount: 45,
-    creditsEarned: 0,
-    lastActive: '2024-03-16',
-    status: 'active'
-  },
-  {
-    id: '4',
-    name: 'Your Name',
-    email: 'you@example.com',
-    role: 'NGO',
-    organization: 'Your Organization',
-    location: 'Your Location',
-    projectsCount: 0,
-    creditsEarned: 0,
-    lastActive: '2024-03-17',
-    status: 'active'
-  }
-];
-
-const mockProjects = [
-  {
-    id: '1',
-    name: 'Sundarbans Mangrove Restoration Phase-II',
-    submitter: 'Coastal Conservation NGO',
-    ecosystem: 'MANGROVE',
-    location: 'West Bengal, India',
-    area: 150,
-    status: 'PENDING',
-    submissionDate: '2024-03-10',
-    carbonEstimate: 2500,
-    priority: 'HIGH'
-  },
-  {
-    id: '2',
-    name: 'Kerala Seagrass Conservation',
-    submitter: 'Marine Foundation',
-    ecosystem: 'SEAGRASS',
-    location: 'Kerala, India',
-    area: 75,
-    status: 'UNDER_REVIEW',
-    submissionDate: '2024-03-08',
-    carbonEstimate: 1200,
-    priority: 'MEDIUM'
-  },
-  {
-    id: '3',
-    name: 'Gujarat Salt Marsh Rehabilitation',
-    submitter: 'Coastal Panchayat Gujarat',
-    ecosystem: 'SALT_MARSH',
-    location: 'Gujarat, India',
-    area: 200,
-    status: 'VERIFIED',
-    submissionDate: '2024-02-28',
-    carbonEstimate: 1800,
-    priority: 'LOW'
-  }
-];
+interface DashboardProject extends Project {
+  priority?: 'HIGH' | 'MEDIUM' | 'LOW';
+}
 
 const AdminDashboard = () => {
   const { user } = useAuth();
-  const [users, setUsers] = useState(mockUsers);
-  const [projects, setProjects] = useState(mockProjects);
-  const [stats, setStats] = useState(mockStats);
+  const [users, setUsers] = useState<AdminUser[]>([]);
+  const [projects, setProjects] = useState<DashboardProject[]>([]);
+  const [stats, setStats] = useState<AdminStats | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [activeTab, setActiveTab] = useState('overview');
+
+  // Fetch admin data from backend
+  const fetchAdminData = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const [statsResponse, usersResponse, projectsResponse] = await Promise.all([
+        apiService.getAdminStats(),
+        apiService.getAdminUsers(),
+        apiService.getProjects()
+      ]);
+      
+      setStats(statsResponse);
+      setUsers(usersResponse.users);
+      setProjects(projectsResponse.projects.map(p => ({ ...p, priority: 'MEDIUM' as const })));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch admin data');
+      console.error('Error fetching admin data:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (user?.role === 'ADMIN') {
+      fetchAdminData();
+    }
+  }, [user]);
 
   // Redirect if not admin
   useEffect(() => {
@@ -183,12 +128,23 @@ const AdminDashboard = () => {
     }
   };
 
-  const handleVerifyProject = (projectId: string, decision: 'VERIFIED' | 'REJECTED') => {
-    // Update project status
-    setProjects(prev => prev.map(p => 
-      p.id === projectId ? { ...p, status: decision } : p
-    ));
-    toast.success(`Project ${decision.toLowerCase()} successfully`);
+  const handleVerifyProject = async (projectId: string, decision: 'VERIFIED' | 'REJECTED') => {
+    try {
+      await apiService.updateProjectStatus(projectId, decision);
+      setProjects(prev => prev.map(p => 
+        p.id === projectId ? { ...p, status: decision } : p
+      ));
+      toast.success(`Project ${decision.toLowerCase()} successfully`);
+      // Refresh stats
+      fetchAdminData();
+    } catch (err) {
+      toast.error('Failed to update project status');
+      console.error('Error updating project status:', err);
+    }
+  };
+
+  const handleRefresh = () => {
+    fetchAdminData();
   };
 
   const handleUserAction = (userId: string, action: 'approve' | 'suspend' | 'delete') => {
@@ -196,8 +152,9 @@ const AdminDashboard = () => {
   };
 
   const handlePromoteToAdmin = (userId: string) => {
+    // TODO: Implement user role update API call
     setUsers(prev => prev.map(u => 
-      u.id === userId ? { ...u, role: 'ADMIN' } : u
+      u.id === userId ? { ...u, role: 'ADMIN' as const } : u
     ));
     toast.success('User promoted to administrator successfully');
   };
@@ -208,6 +165,19 @@ const AdminDashboard = () => {
     ));
     toast.success(`User role changed to ${newRole}`);
   };
+
+  // Show loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Card className="p-8 text-center">
+          <Loader2 className="mx-auto h-12 w-12 text-blue-500 mb-4 animate-spin" />
+          <h2 className="text-2xl font-bold mb-2">Loading Admin Dashboard</h2>
+          <p className="text-gray-600">Fetching administrative data...</p>
+        </Card>
+      </div>
+    );
+  }
 
   if (!user || user.role !== 'ADMIN') {
     return (
@@ -245,11 +215,14 @@ const AdminDashboard = () => {
 
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-8">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-4 lg:grid-cols-8">
             <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="verification">Verification</TabsTrigger>
+            <TabsTrigger value="auditor">Auditor</TabsTrigger>
+            <TabsTrigger value="blockchain">Blockchain</TabsTrigger>
             <TabsTrigger value="projects">Projects</TabsTrigger>
             <TabsTrigger value="users">Users</TabsTrigger>
-            <TabsTrigger value="credits">Carbon Credits</TabsTrigger>
+            <TabsTrigger value="credits">Credits</TabsTrigger>
             <TabsTrigger value="settings">Settings</TabsTrigger>
           </TabsList>
 
@@ -263,10 +236,10 @@ const AdminDashboard = () => {
                   <Users className="h-4 w-4 text-blue-200" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{stats.totalUsers.toLocaleString()}</div>
+                  <div className="text-2xl font-bold">{stats?.totalUsers?.toLocaleString() || '0'}</div>
                   <p className="text-xs text-blue-200">
                     <TrendingUp className="w-3 h-3 inline mr-1" />
-                    +{stats.monthlyGrowth}% from last month
+                    +{stats?.monthlyGrowth || '0'}% from last month
                   </p>
                 </CardContent>
               </Card>
@@ -277,9 +250,9 @@ const AdminDashboard = () => {
                   <FileText className="h-4 w-4 text-green-200" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{stats.totalProjects.toLocaleString()}</div>
+                  <div className="text-2xl font-bold">{stats?.totalProjects?.toLocaleString() || '0'}</div>
                   <p className="text-xs text-green-200">
-                    {stats.verifiedProjects} verified, {stats.pendingVerification} pending
+                    {stats?.verifiedProjects || '0'} verified, {stats?.pendingVerification || '0'} pending
                   </p>
                 </CardContent>
               </Card>
@@ -290,9 +263,9 @@ const AdminDashboard = () => {
                   <Leaf className="h-4 w-4 text-purple-200" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{stats.totalCarbonCredits.toLocaleString()}</div>
+                  <div className="text-2xl font-bold">{stats?.totalCarbonCredits?.toLocaleString() || '0'}</div>
                   <p className="text-xs text-purple-200">
-                    {stats.activeCredits.toLocaleString()} active, {stats.retiredCredits.toLocaleString()} retired
+                    {stats?.activeCredits?.toLocaleString() || '0'} active, {stats?.retiredCredits?.toLocaleString() || '0'} retired
                   </p>
                 </CardContent>
               </Card>
@@ -303,7 +276,7 @@ const AdminDashboard = () => {
                   <DollarSign className="h-4 w-4 text-amber-200" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">₹{(stats.totalRevenue / 100000).toFixed(1)}L</div>
+                  <div className="text-2xl font-bold">₹{((stats?.totalRevenue || 0) / 100000).toFixed(1)}L</div>
                   <p className="text-xs text-amber-200">From carbon credit transactions</p>
                 </CardContent>
               </Card>
@@ -394,6 +367,21 @@ const AdminDashboard = () => {
                 </CardContent>
               </Card>
             </div>
+          </TabsContent>
+
+          {/* Enhanced Verification Tab */}
+          <TabsContent value="verification" className="space-y-6">
+            <EnhancedVerificationInterface />
+          </TabsContent>
+
+          {/* Auditor Verification Tab */}
+          <TabsContent value="auditor" className="space-y-6">
+            <VerificationDashboard />
+          </TabsContent>
+
+          {/* Blockchain Integration Tab */}
+          <TabsContent value="blockchain" className="space-y-6">
+            <BlockchainInterface />
           </TabsContent>
 
           {/* Projects Tab */}
@@ -575,7 +563,7 @@ const AdminDashboard = () => {
                   <CardTitle className="text-green-700">Total Credits Issued</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-green-700">{stats.totalCarbonCredits.toLocaleString()}</div>
+                  <div className="text-3xl font-bold text-green-700">{stats?.totalCarbonCredits?.toLocaleString() || '0'}</div>
                   <p className="text-sm text-green-600">tCO2 equivalent</p>
                 </CardContent>
               </Card>
@@ -585,7 +573,7 @@ const AdminDashboard = () => {
                   <CardTitle className="text-blue-700">Active Credits</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-blue-700">{stats.activeCredits.toLocaleString()}</div>
+                  <div className="text-3xl font-bold text-blue-700">{stats?.activeCredits?.toLocaleString() || '0'}</div>
                   <p className="text-sm text-blue-600">Available for trading</p>
                 </CardContent>
               </Card>
@@ -595,7 +583,7 @@ const AdminDashboard = () => {
                   <CardTitle className="text-gray-700">Retired Credits</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-gray-700">{stats.retiredCredits.toLocaleString()}</div>
+                  <div className="text-3xl font-bold text-gray-700">{stats?.retiredCredits?.toLocaleString() || '0'}</div>
                   <p className="text-sm text-gray-600">Permanently retired</p>
                 </CardContent>
               </Card>

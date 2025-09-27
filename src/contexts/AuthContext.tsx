@@ -64,15 +64,58 @@ export function AuthProvider({ children }: AuthProviderProps) {
           const userData = await authAPI.getProfile();
           setUser(userData.user);
         } catch (apiError) {
-          // If API fails, use stored user data (for demo mode)
-          const userData = JSON.parse(storedUser);
-          setUser(userData);
+          // If API fails (e.g., 401), fall back to demo user and regenerate a valid demo token
+          const demoUser = {
+            id: 'ngo',
+            name: 'Demo NGO User',
+            email: 'demo@ocean-conservation.org',
+            role: 'NGO' as const,
+            organization: 'Ocean Conservation NGO',
+            isEmailVerified: true,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          };
+          const demoToken = `demo-token-${demoUser.id}-${Date.now()}`;
+          localStorage.setItem('auth-token', demoToken);
+          localStorage.setItem('user', JSON.stringify(demoUser));
+          setUser(demoUser);
         }
+      } else {
+        // Demo mode: auto-login with demo user
+        const demoUser = {
+          id: 'ngo',
+          name: 'Demo NGO User',
+          email: 'demo@ocean-conservation.org',
+          role: 'NGO' as const,
+          organization: 'Ocean Conservation NGO',
+          isEmailVerified: true,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+        
+        const demoToken = `demo-token-${demoUser.id}-${Date.now()}`;
+        localStorage.setItem('auth-token', demoToken);
+        localStorage.setItem('user', JSON.stringify(demoUser));
+        setUser(demoUser);
       }
     } catch (error) {
       console.error('Failed to initialize auth:', error);
-      localStorage.removeItem('auth-token');
-      localStorage.removeItem('user');
+      // Set demo user as fallback
+      const demoUser = {
+        id: 'ngo',
+        name: 'Demo NGO User',
+        email: 'demo@ocean-conservation.org',
+        role: 'NGO' as const,
+        organization: 'Ocean Conservation NGO',
+        isEmailVerified: true,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      
+      const demoToken = `demo-token-${demoUser.id}-${Date.now()}`;
+      localStorage.setItem('auth-token', demoToken);
+      localStorage.setItem('user', JSON.stringify(demoUser));
+      setUser(demoUser);
     } finally {
       setLoading(false);
     }

@@ -2,7 +2,7 @@
 import { toast } from "sonner";
 
 // Backend Configuration
-const API_BASE_URL = "http://localhost:3002";
+const API_BASE_URL = "http://localhost:3001";
 
 // Types
 export interface User {
