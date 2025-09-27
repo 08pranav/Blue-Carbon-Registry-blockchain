@@ -83,13 +83,26 @@ export function SubmitProjectWizard() {
 
   const startCamera = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: { ideal: 'environment' },
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        },
+        audio: false
+      })
       if (videoRef.current) {
-        videoRef.current.srcObject = stream
+        const v = videoRef.current
+        v.srcObject = stream
+        // Improve autoplay compatibility on Safari/iOS
+        v.muted = true
+        // play() can reject if not allowed; ignore error
+        try { await v.play() } catch {}
         setCameraActive(true)
       }
-    } catch {
-      setErrors(prev => [...prev, 'Camera access denied. Use file upload instead.'])
+    } catch (e) {
+      console.error('getUserMedia error:', e)
+      setErrors(prev => [...prev, 'Camera access denied or unavailable. Use file upload instead.'])
     }
   }
   const stopCamera = () => {
@@ -293,11 +306,25 @@ export function SubmitProjectWizard() {
                     <SelectItem value="current">Current</SelectItem>
                   </SelectContent>
                 </Select>
-                {cameraActive && <Button type="button" onClick={capture}><Camera className="h-4 w-4 mr-2" />Capture</Button>}
                 <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()}><Upload className="h-4 w-4 mr-2" />Upload</Button>
                 <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={onFiles} />
               </div>
-              {cameraActive && <div className="border rounded"><video ref={videoRef} autoPlay playsInline className="w-full max-h-80 bg-black" /></div>}
+              {cameraActive && (
+                <div className="border rounded p-2">
+                  <video
+                    ref={videoRef}
+                    autoPlay
+                    playsInline
+                    muted
+                    className="w-full max-h-80 bg-black rounded"
+                  />
+                  <div className="mt-2 flex justify-end">
+                    <Button type="button" onClick={capture}>
+                      <Camera className="h-4 w-4 mr-2" /> Capture Photo
+                    </Button>
+                  </div>
+                </div>
+              )}
               <canvas ref={canvasRef} className="hidden" />
               {evidence.length > 0 && (
                 <div className="grid md:grid-cols-3 gap-3">
