@@ -34,6 +34,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { usePublicClient, useChainId } from 'wagmi';
 
 interface BlockchainTransaction {
   id: string;
@@ -91,6 +92,9 @@ export function BlockchainInterface({ className }: BlockchainInterfaceProps) {
   const [credits, setCredits] = useState<CarbonCredit[]>([]);
   const [contractInfo, setContractInfo] = useState<SmartContractInfo | null>(null);
   const [loading, setLoading] = useState(true);
+  const publicClient = usePublicClient();
+  const chainId = useChainId();
+  const [latestBlock, setLatestBlock] = useState<bigint | null>(null);
   const [mintingCredit, setMintingCredit] = useState(false);
   const [selectedProject, setSelectedProject] = useState('');
   const [mintAmount, setMintAmount] = useState('');
@@ -102,6 +106,19 @@ export function BlockchainInterface({ className }: BlockchainInterfaceProps) {
   useEffect(() => {
     fetchBlockchainData();
   }, []);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        if (publicClient) {
+          const n = await publicClient.getBlockNumber();
+          if (active) setLatestBlock(n);
+        }
+      } catch {}
+    })();
+    return () => { active = false };
+  }, [publicClient, chainId]);
 
   const fetchBlockchainData = async () => {
     setLoading(true);
@@ -160,13 +177,13 @@ export function BlockchainInterface({ className }: BlockchainInterfaceProps) {
       ]);
 
       setContractInfo({
-        registryAddress: '0x1234567890abcdef1234567890abcdef12345678',
-        creditsAddress: '0xabcdef1234567890abcdef1234567890abcdef12',
-        network: 'Polygon Mumbai Testnet',
-        chainId: 80001,
-        totalProjects: 156,
-        totalCredits: 45000,
-        totalRetired: 12000
+        registryAddress: '0x0000000000000000000000000000000000000000',
+        creditsAddress: '0x0000000000000000000000000000000000000000',
+        network: `Chain ${chainId || 'unknown'}`,
+        chainId: chainId || 0,
+        totalProjects: 0,
+        totalCredits: 0,
+        totalRetired: 0
       });
 
     } catch (error) {
