@@ -80,7 +80,7 @@ function getEnvNumber(key: string, fallback: number = 0): number {
 // Create configuration object
 export const config: AppConfig = {
   api: {
-    baseUrl: getEnvVar('VITE_API_BASE_URL', import.meta.env.DEV ? 'http://localhost:3001' : 'https://api.bluecarbon.org'),
+    baseUrl: getEnvVar('VITE_API_BASE_URL', import.meta.env.DEV ? 'http://localhost:3001' : ''),
     timeout: getEnvNumber('VITE_API_TIMEOUT', 10000),
   },
 
