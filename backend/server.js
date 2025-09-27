@@ -221,6 +221,22 @@ app.get('/api/projects/:id', (req, res) => {
   res.json(project);
 });
 
+// Delete a project
+app.delete('/api/projects/:id', (req, res) => {
+  const idx = projects.findIndex(p => p.id === req.params.id);
+  if (idx === -1) {
+    return res.status(404).json({ error: 'Project not found' });
+  }
+  const [removed] = projects.splice(idx, 1);
+  // Also remove related transactions (mock)
+  for (let i = transactions.length - 1; i >= 0; i--) {
+    if (transactions[i].projectId === req.params.id) {
+      transactions.splice(i, 1);
+    }
+  }
+  return res.json({ message: 'Project deleted', project: removed });
+});
+
 app.post('/api/projects', upload.array('files', 10), (req, res) => {
   try {
     const {
