@@ -1,8 +1,8 @@
 import React from 'react';
-import { SubmitProjectEnhanced } from '@/components/SubmitProjectEnhanced';
+import { SubmitProjectWizard } from '@/components/SubmitProjectWizard';
 
 const Submit = () => {
-  return <SubmitProjectEnhanced />;
+  return <SubmitProjectWizard />;
 };
 
 export default Submit;
