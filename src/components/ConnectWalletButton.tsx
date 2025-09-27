@@ -1,11 +1,11 @@
 import { Button } from '@/components/ui/button'
 import { useAccount, useConnect, useDisconnect } from 'wagmi'
-import { InjectedConnector } from 'wagmi/connectors/injected'
+import { injected } from 'wagmi/connectors'
 import { Wallet } from 'lucide-react'
 
 export function ConnectWalletButton() {
   const { address, isConnected } = useAccount()
-  const { connect, isPending } = useConnect({ connector: new InjectedConnector() })
+  const { connect, isPending } = useConnect()
   const { disconnect } = useDisconnect()
 
   if (isConnected) {
@@ -18,7 +18,7 @@ export function ConnectWalletButton() {
   }
 
   return (
-    <Button size="sm" onClick={() => connect()} disabled={isPending}>
+    <Button size="sm" onClick={() => connect({ connector: injected() })} disabled={isPending}>
       <Wallet className="h-4 w-4 mr-2" /> Connect Wallet
     </Button>
   )
