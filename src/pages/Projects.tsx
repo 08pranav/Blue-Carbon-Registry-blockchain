@@ -101,12 +101,24 @@ const Projects = () => {
   };
 
   const handleDeleteProject = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this project? This action cannot be undone.')) return;
+
+    // Optimistic update
+    const prevProjects = projects;
+    setProjects(prev => prev.filter(p => p.id !== id));
+
     try {
-      if (!confirm('Are you sure you want to delete this project? This action cannot be undone.')) return;
       await apiService.deleteProject(id);
-      setProjects(prev => prev.filter(p => p.id !== id));
       toast.success('Project deleted successfully');
-    } catch (err) {
+    } catch (err: any) {
+      const msg = err?.message || '';
+      // In demo mode (mock items) or 404 from backend, keep removal and inform user
+      if (!id.startsWith('PRJ-') || msg.includes('404') || msg.toLowerCase().includes('not found')) {
+        toast.info('Removed from view (demo/mock data).');
+        return;
+      }
+      // Revert on real failure
+      setProjects(prevProjects);
       console.error('Delete failed', err);
       toast.error('Failed to delete project');
     }
