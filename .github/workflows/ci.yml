@@ -1,0 +1,48 @@
+name: ci
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install deps (root)
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test (frontend)
+        run: npx vitest run --coverage
+
+      - name: Build (frontend)
+        run: npm run build
+
+      - name: Backend install
+        run: |
+          cd backend
+          npm ci
+
+      - name: Contracts compile (if present)
+        run: |
+          if [ -d ../new-bluecarbon/contracts ]; then
+            cd ../new-bluecarbon/contracts
+            npm ci
+            npx hardhat compile
+          fi
