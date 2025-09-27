@@ -36,6 +36,7 @@ import {
 import { useState } from "react";
 import { type UserRole, PERMISSIONS, hasPermission, getRoleDisplayName } from "@/lib/permissions";
 import { toast } from "sonner";
+import { ConnectWalletButton } from "@/components/ConnectWalletButton";
 
 // Landing page navigation (public)
 const landingNavigation = [
@@ -180,6 +181,11 @@ const Header = () => {
                 </NavLink>
               );
             })}
+          </div>
+
+          {/* Wallet connect */}
+          <div className="mr-2 hidden md:block">
+            <ConnectWalletButton />
           </div>
 
           {/* User Menu / Auth Buttons */}
