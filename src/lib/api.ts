@@ -2,18 +2,24 @@
 import { toast } from "sonner";
 
 // Backend Configuration
-const API_BASE_URL = "http://localhost:3001";
+const API_BASE_URL = "http://localhost:3002";
 
 // Types
 export interface User {
   id: string;
   name: string;
   email: string;
-  role: 'ADMIN' | 'VERIFIER' | 'COMMUNITY' | 'NGO';
+  role: 'ADMIN' | 'AUDITOR' | 'NGO' | 'BUYER';
   organization?: string;
   walletAddress?: string;
+  isEmailVerified: boolean;
   createdAt: string;
   updatedAt: string;
+  _count?: {
+    submittedProjects: number;
+    verifiedProjects: number;
+    carbonCredits: number;
+  };
 }
 
 export interface Project {
@@ -152,10 +158,17 @@ class ApiClient {
 
   // Authentication
   async login(credentials: { email: string; password: string }) {
-    return this.request<{ user: User; token: string }>('/api/auth/login', {
+    const response = await this.request<{ user: User; token: string; message: string }>('/api/auth/login', {
       method: 'POST',
       body: JSON.stringify(credentials),
     });
+    
+    // Store token in localStorage
+    if (response.token) {
+      localStorage.setItem('auth-token', response.token);
+    }
+    
+    return response;
   }
 
   async register(userData: {
@@ -165,10 +178,27 @@ class ApiClient {
     organization?: string;
     role?: string;
   }) {
-    return this.request<{ user: User; token: string }>('/api/auth/register', {
+    const response = await this.request<{ user: User; token: string; message: string }>('/api/auth/register', {
       method: 'POST',
       body: JSON.stringify(userData),
     });
+    
+    // Store token in localStorage
+    if (response.token) {
+      localStorage.setItem('auth-token', response.token);
+    }
+    
+    return response;
+  }
+
+  async logout() {
+    try {
+      await this.request<{ message: string }>('/api/auth/logout', {
+        method: 'POST',
+      });
+    } finally {
+      localStorage.removeItem('auth-token');
+    }
   }
 
   async getProfile() {
@@ -285,23 +315,100 @@ class ApiClient {
     return this.request<{ projects: Project[] }>('/api/verification/pending');
   }
 
-  async verifyProject(id: string, decision: {
-    status: 'VERIFIED' | 'REJECTED';
-    comments?: string;
-    carbonCreditsIssued?: number;
+
+  // Admin - User Management
+  async getUsers(params?: {
+    role?: string;
+    verified?: boolean;
+    search?: string;
+    page?: number;
+    limit?: number;
   }) {
-    return this.request<{ project: Project }>(`/api/verification/projects/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify(decision),
+    const searchParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined) {
+          searchParams.append(key, value.toString());
+        }
+      });
+    }
+    
+    const queryString = searchParams.toString();
+    const endpoint = queryString ? `/api/auth/users?${queryString}` : '/api/auth/users';
+    
+    return this.request<{
+      users: User[];
+      pagination: {
+        page: number;
+        limit: number;
+        total: number;
+        pages: number;
+      };
+    }>(endpoint);
+  }
+
+  async updateUser(userId: string, updates: { role?: string; isEmailVerified?: boolean }) {
+    return this.request<{ user: User; message: string }>(`/api/auth/users/${userId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(updates),
     });
   }
 
-  // Blockchain
-  async mintCarbonCredits(projectId: string, amount: number) {
-    return this.request<{ transaction: any }>('/api/blockchain/mint-credits', {
+  // Verification - Enhanced
+  async approveProject(projectId: string, notes?: string) {
+    return this.request<{ project: Project; message: string }>(`/api/verification/${projectId}/verify`, {
       method: 'POST',
-      body: JSON.stringify({ projectId, amount }),
+      body: JSON.stringify({ notes }),
     });
+  }
+
+  async rejectProject(projectId: string, notes: string) {
+    return this.request<{ project: Project; message: string }>(`/api/verification/${projectId}/reject`, {
+      method: 'POST',
+      body: JSON.stringify({ notes }),
+    });
+  }
+
+  // Blockchain - Enhanced
+  async mintCarbonCredits(data: {
+    projectId: string;
+    carbonAmount: number;
+    vintageYear: number;
+    recipientAddress: string;
+    certificationStandard?: string;
+  }) {
+    return this.request<{ credit: any; transactionHash: string; message: string }>('/api/blockchain/mint-credits', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getTransactions(params?: {
+    type?: string;
+    page?: number;
+    limit?: number;
+  }) {
+    const searchParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined) {
+          searchParams.append(key, value.toString());
+        }
+      });
+    }
+    
+    const queryString = searchParams.toString();
+    const endpoint = queryString ? `/api/blockchain/transactions?${queryString}` : '/api/blockchain/transactions';
+    
+    return this.request<{
+      transactions: any[];
+      pagination: {
+        page: number;
+        limit: number;
+        total: number;
+        pages: number;
+      };
+    }>(endpoint);
   }
 
   async getCarbonCredits(projectId?: string) {
@@ -337,6 +444,7 @@ export const api = new ApiClient(API_BASE_URL);
 export const authAPI = {
   login: api.login.bind(api),
   register: api.register.bind(api),
+  logout: api.logout.bind(api),
   getProfile: api.getProfile.bind(api),
   updateProfile: api.updateProfile.bind(api),
 };
@@ -365,13 +473,20 @@ export const uploadAPI = {
 
 export const verificationAPI = {
   getPendingProjects: api.getPendingProjects.bind(api),
-  verifyProject: api.verifyProject.bind(api),
+  approveProject: api.approveProject.bind(api),
+  rejectProject: api.rejectProject.bind(api),
 };
 
 export const blockchainAPI = {
   mintCarbonCredits: api.mintCarbonCredits.bind(api),
   getCarbonCredits: api.getCarbonCredits.bind(api),
   transferCredits: api.transferCredits.bind(api),
+  getTransactions: api.getTransactions.bind(api),
+};
+
+export const adminAPI = {
+  getUsers: api.getUsers.bind(api),
+  updateUser: api.updateUser.bind(api),
 };
 
 export default api;

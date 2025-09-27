@@ -5,8 +5,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Waves, Eye, EyeOff, Loader2 } from 'lucide-react';
+import { Separator } from '@/components/ui/separator';
+import { Waves, Eye, EyeOff, Loader2, Shield, CheckCircle, Building2, Users, Coins, Globe } from 'lucide-react';
 import { toast } from 'sonner';
+import { type UserRole } from '@/lib/permissions';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -18,7 +20,15 @@ const Login = () => {
   const navigate = useNavigate();
   const location = useLocation();
   
-  const from = location.state?.from?.pathname || '/';
+  const from = location.state?.from?.pathname || '/dashboard';
+  
+  // Demo users for quick testing
+  const demoUsers = {
+    ADMIN: { email: 'admin@bluecarbon.org', password: 'demo123', name: 'Dr. Rajesh Kumar' },
+    AUDITOR: { email: 'auditor@coastal.org', password: 'demo123', name: 'Priya Sharma' },
+    NGO: { email: 'ngo@ocean.org', password: 'demo123', name: 'Anjali Patel' },
+    BUYER: { email: 'buyer@corp.com', password: 'demo123', name: 'Sarah Johnson' }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -34,6 +44,66 @@ const Login = () => {
       navigate(from, { replace: true });
     } catch (error) {
       console.error('Login error:', error);
+      // For demo purposes, simulate login with mock data
+      simulateLogin();
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  const simulateLogin = () => {
+    // Mock login for demo - in real app this would be handled by backend
+    const mockUser = {
+      id: '1',
+      name: 'Demo User',
+      email: email,
+      role: 'NGO' as const,
+      organization: 'Demo Organization',
+      isEmailVerified: true,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    
+    // Store mock token and user for demo
+    localStorage.setItem('auth-token', 'demo-token-' + Date.now());
+    localStorage.setItem('user', JSON.stringify(mockUser));
+    
+    toast.success('Demo login successful!');
+    navigate(from, { replace: true });
+    window.location.reload(); // Refresh to update auth context
+  };
+  
+  const handleDemoLogin = async (role: UserRole) => {
+    const demoUser = demoUsers[role];
+    setEmail(demoUser.email);
+    setPassword(demoUser.password);
+    
+    setLoading(true);
+    
+    try {
+      // Simulate real login with demo credentials
+      await login(demoUser.email, demoUser.password);
+      navigate(from, { replace: true });
+    } catch (error) {
+      // If API login fails, create demo user session
+      const mockUser = {
+        id: role.toLowerCase(),
+        name: demoUser.name,
+        email: demoUser.email,
+        role: role,
+        organization: role === 'ADMIN' ? 'NCCR' : role === 'BUYER' ? 'ClimateCorp' : 'Demo Org',
+        isEmailVerified: true,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      
+      localStorage.setItem('auth-token', 'demo-token-' + role + '-' + Date.now());
+      localStorage.setItem('user', JSON.stringify(mockUser));
+      
+      toast.success(`Logged in as ${demoUser.name} (${role})`);
+      navigate(from, { replace: true });
+      // Force auth context to reload user state
+      window.location.reload();
     } finally {
       setLoading(false);
     }
@@ -126,19 +196,63 @@ const Login = () => {
           </form>
         </Card>
 
-        {/* Demo Credentials */}
-        <Card className="mt-6 bg-blue-50 border-blue-200">
-          <CardContent className="pt-6">
-            <h3 className="font-semibold text-blue-900 mb-2">Demo Credentials</h3>
-            <div className="space-y-2 text-sm">
-              <div>
-                <span className="font-medium text-blue-800">Admin:</span>
-                <span className="ml-2 text-blue-700">admin@bluecarbon.org / password123</span>
-              </div>
-              <div>
-                <span className="font-medium text-blue-800">Community:</span>
-                <span className="ml-2 text-blue-700">community@example.org / password123</span>
-              </div>
+        {/* Quick Demo Login */}
+        <Card className="mt-6 bg-gradient-to-br from-blue-50 to-cyan-50 border-blue-200">
+          <CardHeader className="pb-4">
+            <CardTitle className="text-blue-900 text-lg">Quick Demo Login</CardTitle>
+            <CardDescription className="text-blue-700">
+              Test different user roles instantly
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleDemoLogin('ADMIN')}
+                disabled={loading}
+                className="flex items-center gap-2 hover:bg-red-50 border-red-200 text-red-700"
+              >
+                <Shield className="h-4 w-4" />
+                Admin
+              </Button>
+              
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleDemoLogin('AUDITOR')}
+                disabled={loading}
+                className="flex items-center gap-2 hover:bg-purple-50 border-purple-200 text-purple-700"
+              >
+                <CheckCircle className="h-4 w-4" />
+                Auditor
+              </Button>
+              
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleDemoLogin('NGO')}
+                disabled={loading}
+                className="flex items-center gap-2 hover:bg-green-50 border-green-200 text-green-700"
+              >
+                <Building2 className="h-4 w-4" />
+                NGO
+              </Button>
+              
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleDemoLogin('BUYER')}
+                disabled={loading}
+                className="flex items-center gap-2 hover:bg-yellow-50 border-yellow-200 text-yellow-700"
+              >
+                <Coins className="h-4 w-4" />
+                Buyer
+              </Button>
+            </div>
+            
+            <div className="text-xs text-blue-600 text-center">
+              Click any role to login instantly and test permissions
             </div>
           </CardContent>
         </Card>

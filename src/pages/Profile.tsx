@@ -44,7 +44,9 @@ const Profile = () => {
   const getRoleBadgeVariant = (role: string) => {
     switch (role) {
       case 'ADMIN': return 'destructive';
-      case 'VERIFIER': return 'default';
+      case 'AUDITOR': return 'secondary';
+      case 'NGO': return 'default';
+      case 'BUYER': return 'outline';
       default: return 'secondary';
     }
   };
@@ -52,9 +54,9 @@ const Profile = () => {
   const getRoleLabel = (role: string) => {
     switch (role) {
       case 'ADMIN': return 'Administrator';
-      case 'VERIFIER': return 'Verifier';
-      case 'NGO': return 'NGO';
-      case 'COMMUNITY': return 'Community Group';
+      case 'AUDITOR': return 'Auditor/Verifier';
+      case 'NGO': return 'NGO/Non-Profit';
+      case 'BUYER': return 'Carbon Credit Buyer';
       default: return role;
     }
   };

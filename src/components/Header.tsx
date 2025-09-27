@@ -22,48 +22,112 @@ import {
   Waves,
   User,
   LogOut,
-  Settings
+  Settings,
+  ShoppingCart,
+  CheckCircle,
+  Building2,
+  Users,
+  BarChart3,
+  Globe,
+  Coins,
+  RefreshCw
 } from "lucide-react";
 import { useState } from "react";
+import { type UserRole, PERMISSIONS, hasPermission, getRoleDisplayName } from "@/lib/permissions";
+import { toast } from "sonner";
 
-const publicNavigation = [
+// Landing page navigation (public)
+const landingNavigation = [
   { name: "Home", href: "/", icon: Home },
-  { name: "Registry", href: "/registry", icon: Database },
+  { name: "About", href: "/about", icon: Globe },
+  { name: "How It Works", href: "/how-it-works", icon: BarChart3 },
+  { name: "Public Registry", href: "/registry", icon: Database },
 ];
 
-const authenticatedNavigation = [
-  { name: "Home", href: "/", icon: Home },
-  { name: "Registry", href: "/registry", icon: Database },
-  { name: "My Projects", href: "/projects", icon: FolderOpen },
-  { name: "Submit", href: "/submit", icon: Upload },
-];
-
-const adminNavigation = [
-  { name: "Admin", href: "/admin", icon: Shield },
-];
+// Role-based navigation for authenticated users
+const getRoleBasedNavigation = (userRole: UserRole | null) => {
+  if (!userRole) return [];
+  
+  const navigation = [];
+  
+  // Dashboard - everyone gets a dashboard
+  navigation.push({ name: "Dashboard", href: "/dashboard", icon: Home });
+  
+  // Projects - for those who can submit or view projects
+  if (hasPermission(userRole, PERMISSIONS.SUBMIT_PROJECTS) || hasPermission(userRole, PERMISSIONS.VIEW_OWN_PROJECTS)) {
+    navigation.push({ name: "My Projects", href: "/projects", icon: FolderOpen });
+  }
+  
+  // Submit - for those who can submit projects
+  if (hasPermission(userRole, PERMISSIONS.SUBMIT_PROJECTS)) {
+    navigation.push({ name: "Submit Project", href: "/submit", icon: Upload });
+  }
+  
+  // Verification - for verifiers and admins
+  if (hasPermission(userRole, PERMISSIONS.VERIFY_DATA)) {
+    navigation.push({ name: "Verification", href: "/verification", icon: CheckCircle });
+  }
+  
+  // Marketplace - for buyers and sellers
+  if (hasPermission(userRole, PERMISSIONS.VIEW_MARKETPLACE)) {
+    navigation.push({ name: "Marketplace", href: "/marketplace", icon: ShoppingCart });
+  }
+  
+  // Registry - public view for everyone
+  navigation.push({ name: "Registry", href: "/registry", icon: Database });
+  
+  // Analytics - for those with view analytics permission
+  if (hasPermission(userRole, PERMISSIONS.VIEW_ANALYTICS)) {
+    navigation.push({ name: "Analytics", href: "/analytics", icon: BarChart3 });
+  }
+  
+  // Admin - for admins only
+  if (hasPermission(userRole, PERMISSIONS.VIEW_ADMIN_DASHBOARD)) {
+    navigation.push({ name: "Admin", href: "/admin", icon: Shield });
+  }
+  
+  return navigation;
+};
 
 const Header = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [demoRole, setDemoRole] = useState<UserRole | null>(null);
   const location = useLocation();
-  const { isAuthenticated, user, isAdmin, logout } = useAuth();
+  const { isAuthenticated, user, userRole, logout } = useAuth();
 
+  // Use demo role if set, otherwise use actual user role
+  const currentRole = demoRole || userRole;
+  
   // Determine navigation items based on authentication status
   const getNavigationItems = () => {
-    if (!isAuthenticated) return publicNavigation;
-    const items = [...authenticatedNavigation];
-    if (isAdmin) items.push(...adminNavigation);
-    return items;
+    if (!isAuthenticated) return landingNavigation;
+    return getRoleBasedNavigation(currentRole);
   };
 
   const navigation = getNavigationItems();
+  
+  // Demo role switcher for testing
+  const handleRoleSwitch = (role: UserRole) => {
+    setDemoRole(role);
+    toast.success(`Switched to ${getRoleDisplayName(role)} role for demo`);
+  };
+  
+  const clearDemoRole = () => {
+    setDemoRole(null);
+    toast.info('Using actual user role');
+  };
 
   const getRoleLabel = (role: string) => {
+    return getRoleDisplayName(role as UserRole);
+  };
+  
+  const getRoleIcon = (role: UserRole) => {
     switch (role) {
-      case 'ADMIN': return 'Admin';
-      case 'VERIFIER': return 'Verifier';
-      case 'NGO': return 'NGO';
-      case 'COMMUNITY': return 'Community';
-      default: return role;
+      case 'ADMIN': return Shield;
+      case 'AUDITOR': return CheckCircle;
+      case 'NGO': return Building2;
+      case 'BUYER': return Coins;
+      default: return User;
     }
   };
 
@@ -125,31 +189,85 @@ const Header = () => {
                   </Avatar>
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-56" align="end" forceMount>
+              <DropdownMenuContent className="w-72" align="end" forceMount>
                 <DropdownMenuLabel className="font-normal">
                   <div className="flex flex-col space-y-1">
                     <p className="text-sm font-medium leading-none">{user?.name}</p>
                     <p className="text-xs leading-none text-muted-foreground">
                       {user?.email}
                     </p>
-                    <Badge variant="secondary" className="w-fit mt-1">
-                      {getRoleLabel(user?.role || '')}
-                    </Badge>
+                    <div className="flex items-center gap-2 mt-2">
+                      <Badge variant={demoRole ? "destructive" : "secondary"} className="w-fit">
+                        {getRoleLabel(currentRole || user?.role || '')}
+                      </Badge>
+                      {demoRole && (
+                        <Badge variant="outline" className="text-xs">
+                          Demo Mode
+                        </Badge>
+                      )}
+                    </div>
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
+                
+                {/* Demo Role Switcher */}
+                <DropdownMenuLabel className="text-xs text-muted-foreground px-2 py-1">
+                  <div className="flex items-center gap-1">
+                    <RefreshCw className="h-3 w-3" />
+                    <span>Demo Role Switcher</span>
+                  </div>
+                </DropdownMenuLabel>
+                
+                <div className="grid grid-cols-2 gap-1 p-2">
+                  {(['ADMIN', 'AUDITOR', 'NGO', 'BUYER'] as UserRole[]).map((role) => {
+                    const RoleIcon = getRoleIcon(role);
+                    return (
+                      <button
+                        key={role}
+                        onClick={() => handleRoleSwitch(role)}
+                        className={`flex items-center gap-1 px-2 py-1 text-xs rounded hover:bg-gray-100 ${
+                          currentRole === role ? 'bg-blue-100 text-blue-700' : ''
+                        }`}
+                      >
+                        <RoleIcon className="h-3 w-3" />
+                        <span>{role}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+                
+                {demoRole && (
+                  <DropdownMenuItem onClick={clearDemoRole} className="cursor-pointer text-blue-600">
+                    <RefreshCw className="mr-2 h-4 w-4" />
+                    <span>Reset to Real Role</span>
+                  </DropdownMenuItem>
+                )}
+                
+                <DropdownMenuSeparator />
+                
                 <DropdownMenuItem asChild>
                   <Link to="/profile" className="cursor-pointer">
                     <User className="mr-2 h-4 w-4" />
                     <span>Profile</span>
                   </Link>
                 </DropdownMenuItem>
+                
+                {hasPermission(currentRole || 'OBSERVER', PERMISSIONS.VIEW_OWN_PROJECTS) && (
+                  <DropdownMenuItem asChild>
+                    <Link to="/projects" className="cursor-pointer">
+                      <FolderOpen className="mr-2 h-4 w-4" />
+                      <span>My Projects</span>
+                    </Link>
+                  </DropdownMenuItem>
+                )}
+                
                 <DropdownMenuItem asChild>
-                  <Link to="/projects" className="cursor-pointer">
-                    <FolderOpen className="mr-2 h-4 w-4" />
-                    <span>My Projects</span>
+                  <Link to="/auth-demo" className="cursor-pointer">
+                    <Settings className="mr-2 h-4 w-4" />
+                    <span>Auth Demo</span>
                   </Link>
                 </DropdownMenuItem>
+                
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleLogout} className="cursor-pointer text-red-600">
                   <LogOut className="mr-2 h-4 w-4" />

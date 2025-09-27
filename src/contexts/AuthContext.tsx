@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { authAPI, type User } from '@/lib/api';
 import { toast } from 'sonner';
+import { type UserRole, hasPermission, getUserPermissions, PERMISSIONS } from '@/lib/permissions';
 
 interface AuthContextType {
   user: User | null;
@@ -22,6 +23,12 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isAdmin: boolean;
   isVerifier: boolean;
+  hasPermission: (permission: string) => boolean;
+  userRole: UserRole | null;
+  canSubmitProjects: boolean;
+  canApproveProjects: boolean;
+  canBuyCredits: boolean;
+  canViewAdminDashboard: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -49,9 +56,18 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const initializeAuth = async () => {
     try {
       const token = localStorage.getItem('auth-token');
-      if (token) {
-        const userData = await authAPI.getProfile();
-        setUser(userData.user);
+      const storedUser = localStorage.getItem('user');
+      
+      if (token && storedUser) {
+        try {
+          // Try to get fresh user data from API
+          const userData = await authAPI.getProfile();
+          setUser(userData.user);
+        } catch (apiError) {
+          // If API fails, use stored user data (for demo mode)
+          const userData = JSON.parse(storedUser);
+          setUser(userData);
+        }
       }
     } catch (error) {
       console.error('Failed to initialize auth:', error);
@@ -126,6 +142,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   };
 
+  const userRole = user?.role as UserRole | null;
+  
+  const checkPermission = (permission: string): boolean => {
+    if (!userRole || !permission) return false;
+    return hasPermission(userRole, permission);
+  };
+  
   const value: AuthContextType = {
     user,
     loading,
@@ -135,7 +158,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
     updateProfile,
     isAuthenticated: !!user,
     isAdmin: user?.role === 'ADMIN',
-    isVerifier: user?.role === 'VERIFIER' || user?.role === 'ADMIN',
+    isVerifier: user?.role === 'AUDITOR' || user?.role === 'ADMIN',
+    hasPermission: checkPermission,
+    userRole,
+    canSubmitProjects: checkPermission(PERMISSIONS.SUBMIT_PROJECTS),
+    canApproveProjects: checkPermission(PERMISSIONS.APPROVE_PROJECTS),
+    canBuyCredits: checkPermission(PERMISSIONS.BUY_CREDITS),
+    canViewAdminDashboard: checkPermission(PERMISSIONS.VIEW_ADMIN_DASHBOARD),
   };
 
   return (

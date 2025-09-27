@@ -2,7 +2,8 @@ import HeroSection from "@/components/HeroSection";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { NavLink } from "react-router-dom";
+import { NavLink, Navigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 import { 
   TrendingUp, 
   Leaf, 
@@ -25,6 +26,13 @@ import {
 } from "lucide-react";
 
 const Home = () => {
+  const { isAuthenticated } = useAuth();
+  
+  // Redirect authenticated users to dashboard
+  if (isAuthenticated) {
+    return <Navigate to="/dashboard" replace />;
+  }
+  
   const stats = [
     { 
       label: "Projects Verified", 

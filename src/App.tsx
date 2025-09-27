@@ -14,6 +14,11 @@ import Admin from "./pages/Admin";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Profile from "./pages/Profile";
+import AuthDemo from "./pages/AuthDemo";
+import Dashboard from "./pages/Dashboard";
+import Verification from "./pages/Verification";
+import Analytics from "./pages/Analytics";
+import Marketplace from "./pages/Marketplace";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import NotFound from "./pages/NotFound";
 
@@ -31,9 +36,17 @@ const App = () => (
             <Routes>
               <Route path="/" element={<Home />} />
               <Route path="/registry" element={<Registry />} />
+              <Route path="/auth-demo" element={<AuthDemo />} />
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
               <Route path="/projects/:id" element={<ProjectDetails />} />
+              
+              {/* Protected Routes */}
+              <Route path="/dashboard" element={
+                <ProtectedRoute>
+                  <Dashboard />
+                </ProtectedRoute>
+              } />
               <Route path="/projects" element={
                 <ProtectedRoute>
                   <Projects />
@@ -42,6 +55,21 @@ const App = () => (
               <Route path="/submit" element={
                 <ProtectedRoute>
                   <Submit />
+                </ProtectedRoute>
+              } />
+              <Route path="/verification" element={
+                <ProtectedRoute>
+                  <Verification />
+                </ProtectedRoute>
+              } />
+              <Route path="/analytics" element={
+                <ProtectedRoute>
+                  <Analytics />
+                </ProtectedRoute>
+              } />
+              <Route path="/marketplace" element={
+                <ProtectedRoute>
+                  <Marketplace />
                 </ProtectedRoute>
               } />
               <Route path="/profile" element={
@@ -54,6 +82,7 @@ const App = () => (
                   <Admin />
                 </ProtectedRoute>
               } />
+              
               <Route path="*" element={<NotFound />} />
             </Routes>
           </div>

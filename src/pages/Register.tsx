@@ -16,7 +16,7 @@ const Register = () => {
     password: '',
     confirmPassword: '',
     organization: '',
-    role: 'COMMUNITY' as const,
+    role: 'NGO' as const,
   });
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -131,9 +131,9 @@ const Register = () => {
                     <SelectValue placeholder="Select your role" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="COMMUNITY">Community Group</SelectItem>
-                    <SelectItem value="NGO">NGO/Non-Profit</SelectItem>
-                    <SelectItem value="VERIFIER">Government Verifier</SelectItem>
+                    <SelectItem value="NGO">NGO/Non-Profit Organization</SelectItem>
+                    <SelectItem value="AUDITOR">Auditor/Verifier</SelectItem>
+                    <SelectItem value="BUYER">Carbon Credit Buyer</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
