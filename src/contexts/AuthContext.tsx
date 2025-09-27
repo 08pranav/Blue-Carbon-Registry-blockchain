@@ -83,7 +83,35 @@ export function AuthProvider({ children }: AuthProviderProps) {
           setUser(demoUser);
         }
       } else {
-        // Demo mode: auto-login with demo user
+        // Only auto-login demo user in development or when demo mode is explicitly enabled
+        const isDemo = import.meta.env.VITE_ENABLE_DEMO_MODE === 'true' || import.meta.env.DEV;
+        
+        if (isDemo) {
+          const demoUser = {
+            id: 'ngo',
+            name: 'Demo NGO User',
+            email: 'demo@ocean-conservation.org',
+            role: 'NGO' as const,
+            organization: 'Ocean Conservation NGO',
+            isEmailVerified: true,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          };
+          
+          const demoToken = `demo-token-${demoUser.id}-${Date.now()}`;
+          localStorage.setItem('auth-token', demoToken);
+          localStorage.setItem('user', JSON.stringify(demoUser));
+          setUser(demoUser);
+        }
+        // In production without demo mode, user stays null (not authenticated)
+      }
+    } catch (error) {
+      console.error('Failed to initialize auth:', error);
+      
+      // Only set demo user as fallback in development or demo mode
+      const isDemo = import.meta.env.VITE_ENABLE_DEMO_MODE === 'true' || import.meta.env.DEV;
+      
+      if (isDemo) {
         const demoUser = {
           id: 'ngo',
           name: 'Demo NGO User',
@@ -100,24 +128,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         localStorage.setItem('user', JSON.stringify(demoUser));
         setUser(demoUser);
       }
-    } catch (error) {
-      console.error('Failed to initialize auth:', error);
-      // Set demo user as fallback
-      const demoUser = {
-        id: 'ngo',
-        name: 'Demo NGO User',
-        email: 'demo@ocean-conservation.org',
-        role: 'NGO' as const,
-        organization: 'Ocean Conservation NGO',
-        isEmailVerified: true,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      };
-      
-      const demoToken = `demo-token-${demoUser.id}-${Date.now()}`;
-      localStorage.setItem('auth-token', demoToken);
-      localStorage.setItem('user', JSON.stringify(demoUser));
-      setUser(demoUser);
+      // In production, leave user as null - no auto-login
     } finally {
       setLoading(false);
     }
