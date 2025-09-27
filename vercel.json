@@ -13,11 +13,7 @@
       "destination": "/api/$1"
     },
     {
-<<<<<<< HEAD
       "source": "/((?!api|_next|favicon.ico|robots.txt|assets).*)",
-=======
-      "source": "/(.*)",
->>>>>>> b0d7eb9c77b07e77fd057c8d12bbfbc560f95070
       "destination": "/index.html"
     }
   ]
