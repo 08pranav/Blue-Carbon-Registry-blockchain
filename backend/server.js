@@ -540,6 +540,84 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// Minimal blockchain endpoints (mocked until on-chain integration is wired)
+const blockchainCredits = [];
+
+app.get('/api/blockchain/credits', (req, res) => {
+  const { projectId } = req.query;
+  let credits = blockchainCredits;
+  if (projectId) {
+    credits = credits.filter(c => c.projectId === projectId);
+  }
+  res.json({ credits });
+});
+
+app.get('/api/blockchain/transactions', (req, res) => {
+  res.json({
+    transactions: transactions,
+    pagination: { page: 1, limit: transactions.length, total: transactions.length, pages: 1 }
+  });
+});
+
+app.post('/api/blockchain/mint-credits', (req, res) => {
+  const { projectId, carbonAmount, vintageYear, recipientAddress, certificationStandard } = req.body;
+  if (!projectId || !carbonAmount || !vintageYear || !recipientAddress) {
+    return res.status(400).json({ error: 'Missing required fields' });
+  }
+
+  const project = projects.find(p => p.id === projectId);
+  if (!project) return res.status(404).json({ error: 'Project not found' });
+  if (project.status !== 'VERIFIED') return res.status(400).json({ error: 'Project must be verified to mint credits' });
+
+  const tokenId = 'CC-' + Date.now().toString(36).toUpperCase();
+  const txHash = '0x' + Math.random().toString(16).slice(2).padEnd(64, '0');
+
+  const credit = {
+    id: tokenId,
+    projectId: project.id,
+    amount: Number(carbonAmount),
+    tokenId,
+    status: 'MINTED',
+    currentOwner: recipientAddress,
+    blockchainTxHash: txHash,
+    createdAt: new Date().toISOString()
+  };
+  blockchainCredits.push(credit);
+
+  // Record synthetic transaction
+  transactions.push({
+    id: 'TX-' + Date.now().toString(36).toUpperCase(),
+    listingId: `CC-${project.id}`,
+    projectId: project.id,
+    projectName: project.title || project.name || 'Project',
+    credits: Number(carbonAmount),
+    pricePerCredit: 0,
+    totalAmount: 0,
+    buyerId: 'onchain',
+    buyerName: 'On-chain Mint',
+    sellerId: project.submitterId || 'admin',
+    sellerName: project.submitterName || 'Admin',
+    paymentMethod: 'onchain',
+    status: 'completed',
+    transactionDate: new Date().toISOString(),
+    blockchainTxHash: txHash,
+    carbonCreditsRetired: false
+  });
+
+  return res.json({ credit, transactionHash: txHash, message: 'Credits minted (mock)' });
+});
+
+app.post('/api/blockchain/transfer-credits', (req, res) => {
+  const { tokenId, to, amount } = req.body;
+  const credit = blockchainCredits.find(c => c.tokenId === tokenId);
+  if (!credit) return res.status(404).json({ error: 'Credit not found' });
+  if (credit.status === 'RETIRED') return res.status(400).json({ error: 'Credit already retired' });
+
+  credit.currentOwner = to;
+  const txHash = '0x' + Math.random().toString(16).slice(2).padEnd(64, '0');
+  return res.json({ transaction: { hash: txHash, tokenId, to, amount } });
+});
+
 // Error handling middleware
 app.use((error, req, res, next) => {
   console.error('Server error:', error);
