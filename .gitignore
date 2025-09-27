@@ -12,6 +12,13 @@ dist
 dist-ssr
 *.local
 
+# Environment files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
@@ -23,6 +30,8 @@ dist-ssr
 *.sln
 *.sw?
 
-# Backend uploads - don't track user uploaded files
+# Backend files - don't track uploads and logs
 backend/uploads/*
 !backend/uploads/.gitkeep
+backend/*.log
+backend/logs/
