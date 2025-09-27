@@ -1,8 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { type User } from '@/lib/api';
-import { apiService } from '@/services/api';
+import { type User, apiService } from '@/services/api';
 import { auth as authNotifications } from '@/lib/notifications';
-import { type UserRole, hasPermission, getUserPermissions, PERMISSIONS } from '@/lib/permissions';
+import { type UserRole, hasPermission, PERMISSIONS } from '@/lib/permissions';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 
 interface AuthContextType {
