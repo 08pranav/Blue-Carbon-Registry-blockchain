@@ -291,6 +291,10 @@ class ApiService {
     return await response.json();
   }
 
+  async deleteProject(id: string): Promise<{ message: string }> {
+    return this.request<{ message: string }>(`/projects/${id}`, { method: 'DELETE' })
+  }
+
   async updateProjectStatus(
     id: string, 
     status: 'PENDING' | 'UNDER_REVIEW' | 'VERIFIED' | 'REJECTED', 

@@ -11,6 +11,8 @@ import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Progress } from '@/components/ui/progress'
 import { MapPin, Camera, Upload, Loader2, CheckCircle, AlertTriangle, Trash2, Target } from 'lucide-react'
+import { toast } from 'sonner'
+import { useNavigate } from 'react-router-dom'
 
 interface LocationData { latitude: number; longitude: number; accuracy: number }
 
@@ -31,6 +33,7 @@ const METHODOLOGIES = [
 
 export function SubmitProjectWizard() {
   const { user } = useAuth()
+  const navigate = useNavigate()
   const [step, setStep] = useState(0)
   const steps = ['Basic', 'Location', 'Evidence', 'Methodology', 'Review']
 
@@ -48,6 +51,8 @@ export function SubmitProjectWizard() {
   // Evidence
   const [evidence, setEvidence] = useState<EvidenceImage[]>([])
   const [selectedType, setSelectedType] = useState<EvidenceType>('current')
+  const [devices, setDevices] = useState<MediaDeviceInfo[]>([])
+  const [deviceId, setDeviceId] = useState<string | undefined>(undefined)
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -76,15 +81,23 @@ export function SubmitProjectWizard() {
       const l = { latitude: pos.coords.latitude, longitude: pos.coords.longitude, accuracy: pos.coords.accuracy }
       setCoords(l)
       setLocation(`${l.latitude.toFixed(6)}, ${l.longitude.toFixed(6)}`)
+      try { localStorage.setItem('submit-coords', JSON.stringify(l)) } catch {}
     } catch (e) {
       setErrors(prev => [...prev, 'Unable to fetch geolocation. You can enter location manually.'])
     }
   }
 
+  const refreshDevices = async () => {
+    try {
+      const all = await navigator.mediaDevices.enumerateDevices()
+      setDevices(all.filter(d => d.kind === 'videoinput'))
+    } catch {}
+  }
+
   const startCamera = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
+        video: deviceId ? { deviceId: { exact: deviceId } } : {
           facingMode: { ideal: 'environment' },
           width: { ideal: 1280 },
           height: { ideal: 720 }
@@ -126,7 +139,11 @@ export function SubmitProjectWizard() {
       if (!b) return
       const file = new File([b], `evidence-${selectedType}-${Date.now()}.jpg`, { type: 'image/jpeg' })
       const item: EvidenceImage = { id: Math.random().toString(36).slice(2), file, preview: c.toDataURL('image/jpeg', 0.8), type: selectedType, timestamp: new Date() }
-      setEvidence(prev => [...prev, item])
+      setEvidence(prev => {
+        const next = [...prev, item]
+        try { localStorage.setItem('submit-evidence', JSON.stringify(next.map(i => ({ id: i.id, preview: i.preview, type: i.type, timestamp: i.timestamp })))) } catch {}
+        return next
+      })
     }, 'image/jpeg', 0.85)
   }
 
@@ -136,7 +153,11 @@ export function SubmitProjectWizard() {
       if (!f.type.startsWith('image/')) return
       const reader = new FileReader()
       reader.onload = () => {
-        setEvidence(prev => [...prev, { id: Math.random().toString(36).slice(2), file: f, preview: String(reader.result), type: selectedType, timestamp: new Date() }])
+        setEvidence(prev => {
+          const next = [...prev, { id: Math.random().toString(36).slice(2), file: f, preview: String(reader.result), type: selectedType, timestamp: new Date() }]
+          try { localStorage.setItem('submit-evidence', JSON.stringify(next.map(i => ({ id: i.id, preview: i.preview, type: i.type, timestamp: i.timestamp })))) } catch {}
+          return next
+        })
       }
       reader.readAsDataURL(f)
     })
@@ -190,12 +211,17 @@ export function SubmitProjectWizard() {
       setProgress(100)
       setSuccess(true)
       setErrors([])
+      // clear persisted evidence and coords
+      localStorage.removeItem('submit-evidence')
+      localStorage.removeItem('submit-coords')
+      toast.success('Project submitted successfully! Redirecting to My Projects…')
+      setTimeout(() => navigate('/projects'), 800)
     } catch (err) {
       setErrors(['Failed to submit project. Please try again.'])
     } finally { setLoading(false) }
   }
 
-  useEffect(() => () => stopCamera(), [])
+  useEffect(() => { refreshDevices(); return () => stopCamera() }, [])
 
   if (!user || user.role !== 'NGO') {
     return (
@@ -207,6 +233,19 @@ export function SubmitProjectWizard() {
       </div>
     )
   }
+
+  // Restore persisted evidence/coords once on mount
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('submit-evidence')
+      if (saved) {
+        const parsed: Array<{ id: string; preview: string; type: EvidenceType; timestamp: string }> = JSON.parse(saved)
+        setEvidence(parsed.map(p => ({ id: p.id, file: new File([], `persisted-${p.id}.jpg`), preview: p.preview, type: p.type, timestamp: new Date(p.timestamp) })))
+      }
+      const sc = localStorage.getItem('submit-coords')
+      if (sc) setCoords(JSON.parse(sc))
+    } catch {}
+  }, [])
 
   return (
     <div className="min-h-screen bg-gray-50 p-4">
@@ -287,6 +326,15 @@ export function SubmitProjectWizard() {
                 <Button type="button" onClick={getLocation}><MapPin className="h-4 w-4 mr-2" /> Use Current Location</Button>
                 {coords && <Badge variant="secondary">{coords.latitude.toFixed(6)}, {coords.longitude.toFixed(6)} (±{Math.round(coords.accuracy)}m)</Badge>}
               </div>
+              {coords && (
+                <div className="rounded overflow-hidden border">
+                  <iframe
+                    title="map"
+                    className="w-full h-56"
+                    src={`https://www.openstreetmap.org/export/embed.html?bbox=${coords.longitude-0.01}%2C${coords.latitude-0.01}%2C${coords.longitude+0.01}%2C${coords.latitude+0.01}&layer=mapnik&marker=${coords.latitude}%2C${coords.longitude}`}
+                  />
+                </div>
+              )}
               <div>
                 <Label>Address/Description *</Label>
                 <Input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Village/Area, District, State" />
@@ -298,6 +346,12 @@ export function SubmitProjectWizard() {
             <Card><CardHeader><CardTitle>Evidence</CardTitle><CardDescription>Capture photos or upload</CardDescription></CardHeader><CardContent className="space-y-4">
               <div className="flex items-center gap-2">
                 <Button type="button" onClick={cameraActive ? stopCamera : startCamera}>{cameraActive ? 'Stop Camera' : 'Start Camera'}</Button>
+                <Select value={deviceId || ''} onValueChange={(v) => { setDeviceId(v); if (cameraActive) { stopCamera(); startCamera(); } }}>
+                  <SelectTrigger className="w-52"><SelectValue placeholder="Select Camera" /></SelectTrigger>
+                  <SelectContent>
+                    {devices.map(d => <SelectItem key={d.deviceId} value={d.deviceId}>{d.label || `Camera ${d.deviceId.slice(0,6)}`}</SelectItem>)}
+                  </SelectContent>
+                </Select>
                 <Select value={selectedType} onValueChange={(v) => setSelectedType(v as EvidenceType)}>
                   <SelectTrigger className="w-40"><SelectValue placeholder="Type" /></SelectTrigger>
                   <SelectContent>
