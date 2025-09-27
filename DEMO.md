@@ -25,36 +25,36 @@ A complete **blockchain-powered Blue Carbon Registry & MRV system** that enables
                          └─────────────────┘
 ```
 
-## 🚀 Key Features Implemented
+## 🚀 Current Status and Implemented Features
 
-### ✅ Smart Contracts (Solidity)
-- **BlueCarbonRegistry.sol**: Immutable project registry with verification workflow
-- **BlueCarbonCredits.sol**: ERC-721 NFT contract for carbon credits
-- Full test suite with 15+ test cases
-- Deployment scripts for multiple networks
-- Role-based access control (Admin, Verifier, Community)
+### Frontend
+- Multi-step project submission (GPS capture, mini map, live camera preview/capture, image uploads, methodology)
+- Redirect to Projects after submit; status view and filters; working delete (with backend)
+- Wallet connect (wagmi); on-chain read (latest block number) via Sepolia RPC
 
-### ✅ Backend API (Node.js + Express)
-- **Complete REST API** with 25+ endpoints
-- **JWT Authentication** with role-based permissions
-- **PostgreSQL Database** with Prisma ORM
-- **IPFS Integration** for decentralized file storage
-- **File Upload Processing** with image optimization
-- **Comprehensive validation** and error handling
+### Backend (Demo)
+- Express demo API with in-memory storage; local file uploads via Multer
+- Endpoints: projects (list/get/create/delete/status), verification (pending), marketplace (listings/transactions), uploads
+- Mock blockchain endpoints: mint-credits, credits, transactions, transfer-credits
 
-### ✅ Database Schema
+### Contracts (Available in sibling repo)
+- BlueCarbonRegistry.sol and BlueCarbonCredits.sol exist in new-bluecarbon/contracts
+- Hardhat config updated with Sepolia; deploy/verify scripts added
+- Not yet wired to this app (see BLOCKCHAIN_DEPLOY.md for next steps)
+
+### Planned (Production path)
+- PostgreSQL + Prisma ORM, JWT auth, IPFS pinning (see BACKEND_NEXT.md)
+
+### Database Schema (Planned)
 - **Users**: Authentication, roles, wallet integration
 - **Projects**: Ecosystem data, geolocation, verification status
 - **Evidence Files**: IPFS-stored proof with metadata
 - **Carbon Credits**: NFT tracking, ownership, retirement
 - **Transactions**: Full blockchain activity audit trail
 
-### ✅ IPFS Integration
-- **File Upload Service** with automatic optimization
-- **Metadata Generation** for NFTs and projects
-- **Gateway URL Management** for public access
-- **Content Pinning** for data persistence
-- **GeoJSON Storage** for mapping features
+### IPFS Integration (Planned)
+- Current demo stores uploads locally in backend/uploads
+- IPFS pinning and metadata generation are planned for production
 
 ## 🌊 Blue Carbon Workflow
 
@@ -164,20 +164,24 @@ GET /api/registry/projects
 - **JSON** fields for coordinates
 - **Full-text search** capabilities
 
-## 🔍 API Endpoints Summary
+## 🔍 API Endpoints Summary (Demo vs Planned)
 
 | Category | Endpoint | Description |
 |----------|----------|-------------|
-| **Auth** | `POST /api/auth/register` | User registration |
-| **Auth** | `POST /api/auth/login` | User authentication |
-| **Projects** | `GET /api/projects` | List all projects |
-| **Projects** | `POST /api/projects` | Submit new project |
-| **Upload** | `POST /api/upload/files` | Upload to IPFS |
-| **Verify** | `GET /api/verification/pending` | Pending reviews |
-| **Verify** | `POST /api/verification/:id/verify` | Approve project |
-| **Registry** | `GET /api/registry/projects` | Public registry |
-| **Registry** | `GET /api/registry/stats` | System statistics |
-| **Blockchain** | `POST /api/blockchain/mint-credits` | Issue credits |
+| **Auth** | `POST /api/auth/register` | Planned (JWT) |
+| **Auth** | `POST /api/auth/login` | Demo token in use |
+| **Projects** | `GET /api/projects` | Demo implemented |
+| **Projects** | `POST /api/projects` | Demo implemented (multipart) |
+| **Projects** | `DELETE /api/projects/:id` | Demo implemented |
+| **Projects** | `PATCH /api/projects/:id/status` | Demo implemented |
+| **Upload** | `POST /api/projects` with files | Demo implemented (local storage) |
+| **Verify** | `GET /api/verifications/pending` | Demo implemented |
+| **Verify** | `POST /api/verification/:id/verify` | Demo route: use PATCH status |
+| **Registry** | `GET /api/registry/projects` | Planned |
+| **Registry** | `GET /api/registry/stats` | Planned |
+| **Blockchain** | `POST /api/blockchain/mint-credits` | Demo mocked |
+| **Blockchain** | `GET /api/blockchain/credits` | Demo mocked |
+| **Blockchain** | `GET /api/blockchain/transactions` | Demo mocked |
 
 ## 🌟 Innovation Highlights
 
@@ -211,13 +215,14 @@ Continuous monitoring through digital evidence uploads replaces traditional peri
 3. **Retires credits** for carbon neutrality goal
 4. Gets **immutable certificate** with project provenance
 
-## 🔮 Next Steps (Frontend Implementation)
+## 🔮 Next Steps
 
-### Immediate (Next Sprint)
-1. **React/Next.js Frontend** with mobile-first design
-2. **MetaMask Integration** for wallet connectivity  
-3. **Interactive Map** with Mapbox/Leaflet
-4. **File Upload UI** with drag-drop interface
+### Immediate
+1. Wire deployed contracts (Sepolia) using BLOCKCHAIN_DEPLOY.md; populate src/contracts/addresses.json and ABIs
+2. Replace remaining mock fallbacks in services with real responses (getProjects already uses backend)
+3. Add Project Details data fetch (done) and evidence link handling (done)
+4. Add Project Details modal on Projects and periodic auto-refresh for status
+5. Upgrade Registry to load verified projects (pending backend)
 
 ### Future Enhancements
 1. **Mobile PWA** with offline capability
@@ -228,11 +233,11 @@ Continuous monitoring through digital evidence uploads replaces traditional peri
 
 ## 🏆 Hackathon Readiness
 
-### ✅ Complete Backend Infrastructure
-- Fully functional API ready for frontend integration
-- Database schema supports all use cases  
-- Smart contracts deployed and tested
-- IPFS integration working
+### Current Demo Infrastructure
+- Demo API ready for frontend flows (in-memory)
+- Production path defined in BACKEND_NEXT.md (Prisma/JWT/IPFS)
+- Smart contracts available; wiring pending (see BLOCKCHAIN_DEPLOY.md)
+- Local uploads; IPFS planned
 
 ### ✅ Demo-Ready Features
 - User registration and authentication

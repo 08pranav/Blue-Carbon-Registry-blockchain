@@ -22,3 +22,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Backend uploads - don't track user uploaded files
+backend/uploads/*
+!backend/uploads/.gitkeep

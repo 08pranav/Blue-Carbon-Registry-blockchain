@@ -280,16 +280,16 @@ export function EnhancedVerificationInterface({ className }: EnhancedVerificatio
   };
 
   const filteredProjects = projects.filter(project => {
-    const matchesSearch = project.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         project.submitter.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         project.location.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch = (project.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         (project.submitter || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         (project.location || '').toLowerCase().includes(searchQuery.toLowerCase());
     
     const matchesStatus = statusFilter === 'all' || 
                          (statusFilter === 'pending' && project.status === 'PENDING') ||
                          (statusFilter === 'under_review' && project.status === 'UNDER_REVIEW') ||
                          (statusFilter === 'completed' && (project.status === 'VERIFIED' || project.status === 'REJECTED'));
     
-    const matchesPriority = priorityFilter === 'all' || project.priority?.toLowerCase() === priorityFilter.toLowerCase();
+    const matchesPriority = priorityFilter === 'all' || project.priority?.toLowerCase?.() === priorityFilter.toLowerCase();
     
     return matchesSearch && matchesStatus && matchesPriority;
   });

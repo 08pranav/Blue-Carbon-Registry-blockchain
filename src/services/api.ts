@@ -1,6 +1,6 @@
-const API_BASE_URL = process.env.NODE_ENV === 'production' 
-  ? 'https://api.bluecarbon.org' 
-  : 'http://localhost:3001';
+import { apiConfig } from '@/lib/config';
+
+const API_BASE_URL = apiConfig.baseUrl;
 
 interface ApiResponse<T> {
   data?: T;

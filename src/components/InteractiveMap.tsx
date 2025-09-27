@@ -106,7 +106,7 @@ export function InteractiveMap({ className, height = "600px" }: InteractiveMapPr
   };
 
   const getEcosystemColor = (ecosystem: string): string => {
-    switch (ecosystem?.toLowerCase()) {
+    switch (ecosystem?.toLowerCase?.()) {
       case 'mangrove': return '#10B981'; // Green
       case 'seagrass': return '#3B82F6'; // Blue
       case 'saltmarsh': return '#8B5CF6'; // Purple
@@ -147,11 +147,11 @@ export function InteractiveMap({ className, height = "600px" }: InteractiveMapPr
 
   const filteredProjects = projects.filter(project => {
     const matchesSearch = 
-      project.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      project.location.toLowerCase().includes(searchQuery.toLowerCase());
+      (project.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (project.location || '').toLowerCase().includes(searchQuery.toLowerCase());
     
     const matchesEcosystem = ecosystemFilter === 'all' || 
-      project.ecosystem?.toLowerCase() === ecosystemFilter.toLowerCase();
+      project.ecosystem?.toLowerCase?.() === ecosystemFilter.toLowerCase();
     
     const matchesStatus = statusFilter === 'all' || project.status === statusFilter;
     

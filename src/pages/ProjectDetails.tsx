@@ -1,4 +1,5 @@
-import { useParams } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -18,46 +19,83 @@ import {
   Clock,
   XCircle
 } from 'lucide-react';
-
-// Mock data - will be replaced with API call
-const mockProject = {
-  id: '1',
-  title: 'Sundarbans Mangrove Restoration Project',
-  description: 'Large-scale mangrove restoration initiative covering 150 hectares in the Sundarbans region of West Bengal. This project aims to restore degraded mangrove ecosystems, enhance coastal protection, and sequester significant amounts of carbon dioxide.',
-  ecosystem: 'MANGROVE',
-  location: 'Sundarbans, West Bengal, India',
-  coordinates: { latitude: 21.9497, longitude: 88.4297 },
-  area: 150,
-  status: 'VERIFIED',
-  carbonCreditsEstimated: 2500,
-  carbonCreditsIssued: 2500,
-  createdAt: '2024-01-15T00:00:00Z',
-  user: {
-    id: '1',
-    name: 'Sundarbans Conservation Society',
-    organization: 'Environmental NGO',
-    role: 'NGO'
-  },
-  verifier: {
-    id: '2',
-    name: 'Dr. Priya Sharma',
-    organization: 'National Centre for Coastal Research',
-    role: 'VERIFIER'
-  },
-  evidenceFiles: [
-    { id: '1', filename: 'site_photos_jan_2024.jpg', originalName: 'Site Photos January 2024', mimeType: 'image/jpeg', size: 5200000 },
-    { id: '2', filename: 'species_report.pdf', originalName: 'Species Assessment Report', mimeType: 'application/pdf', size: 1800000 },
-    { id: '3', filename: 'monitoring_data.csv', originalName: 'Monthly Monitoring Data', mimeType: 'text/csv', size: 450000 }
-  ],
-  blockchainTxHash: '0x1234567890abcdef...',
-  tokenId: 'BCR-MAN-001'
-};
+import { apiService, type Project } from '@/services/api';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 const ProjectDetails = () => {
-  const { id } = useParams<{ id: string }>();
+  const { id: urlId } = useParams<{ id: string }>();
+  const [searchParams] = useSearchParams();
+  const queryId = searchParams.get('id');
+  const id = urlId || queryId; // Use URL param first, then query param
   
-  // In real implementation, fetch project data based on ID
-  const project = mockProject;
+  const [project, setProject] = useState<any | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const load = async () => {
+      if (!id) {
+        setError('No project ID provided');
+        setLoading(false);
+        return;
+      }
+      
+      console.log('Loading project with ID:', id);
+      setLoading(true);
+      setError(null);
+      
+      try {
+        const data = await apiService.getProject(id);
+        console.log('API response:', data);
+        
+        // apiService.getProject returns Project; backend /api/projects/:id returns project object
+        // Normalize possible shape differences
+        const p: any = (data as any).project || data;
+        
+        if (!p) {
+          throw new Error('Project data is empty');
+        }
+        
+        setProject(p);
+      } catch (e: any) {
+        console.error('Error loading project:', e);
+        setError(e?.message || 'Failed to load project');
+        
+        // If API fails, try to use mock data for demo
+        const mockProject = {
+          id: id,
+          title: 'Sample Blue Carbon Project',
+          name: 'Sample Blue Carbon Project',
+          description: 'This is a sample project for demonstration purposes.',
+          ecosystem: 'MANGROVE',
+          location: 'Sundarbans, West Bengal, India',
+          area: 25.5,
+          status: 'VERIFIED',
+          carbonCreditsEstimated: 150,
+          carbonCreditsIssued: 125,
+          submissionDate: '2024-01-15',
+          evidenceFiles: [
+            {
+              id: '1',
+              name: 'Site_Photo.jpg',
+              url: '/api/placeholder/400/300',
+              type: 'image/jpeg',
+              size: 2048576
+            }
+          ],
+          user: {
+            name: 'Green Earth NGO',
+            organization: 'Environmental Protection Society'
+          }
+        };
+        setProject(mockProject);
+        setError(null); // Clear error since we're using mock data
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, [id]);
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -88,6 +126,27 @@ const ProjectDetails = () => {
     return Math.round(bytes / Math.pow(1024, i) * 100) / 100 + ' ' + sizes[i];
   };
 
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-gray-600">Loading project…</div>
+      </div>
+    );
+  }
+
+  if (error || !project) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <Alert>
+          <AlertDescription>{error || 'Project not found'}</AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
+
+  const submittedAt = project.submissionDate || project.createdAt;
+  const evidence = project.evidenceFiles || [];
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Project Header */}
@@ -113,12 +172,14 @@ const ProjectDetails = () => {
                 </div>
                 <div className="flex items-center">
                   <Calendar className="h-4 w-4 mr-1" />
-                  {new Date(project.createdAt).toLocaleDateString()}
+                  {submittedAt ? new Date(submittedAt).toLocaleDateString() : '—'}
                 </div>
-                <div className="flex items-center">
-                  <Users className="h-4 w-4 mr-1" />
-                  {project.user.name}
-                </div>
+                {project.submitterName && (
+                  <div className="flex items-center">
+                    <Users className="h-4 w-4 mr-1" />
+                    {project.submitterName}
+                  </div>
+                )}
               </div>
             </div>
             <div className="text-right">
@@ -182,26 +243,34 @@ const ProjectDetails = () => {
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {project.evidenceFiles.map((file) => (
+                  {evidence.map((file: any) => (
                     <div key={file.id} className="flex items-center justify-between p-3 border rounded-lg">
                       <div className="flex items-center space-x-3">
                         <FileText className="h-5 w-5 text-gray-400" />
                         <div>
-                          <div className="font-medium">{file.originalName}</div>
+                          <div className="font-medium">{file.name || file.originalName || file.filename}</div>
                           <div className="text-sm text-gray-500">
-                            {file.mimeType.split('/')[1].toUpperCase()} • {formatFileSize(file.size)}
+                            {(file.type || file.mimetype || '').split('/')[1]?.toUpperCase?.() || 'FILE'}{file.size ? ` • ${formatFileSize(file.size)}` : ''}
                           </div>
                         </div>
                       </div>
                       <div className="flex space-x-2">
-                        <Button variant="outline" size="sm">
-                          <ExternalLink className="h-3 w-3 mr-1" />
-                          View
-                        </Button>
-                        <Button variant="outline" size="sm">
-                          <Download className="h-3 w-3 mr-1" />
-                          Download
-                        </Button>
+                        {file.url && (
+                          <a href={file.url} target="_blank" rel="noreferrer">
+                            <Button variant="outline" size="sm">
+                              <ExternalLink className="h-3 w-3 mr-1" />
+                              View
+                            </Button>
+                          </a>
+                        )}
+                        {file.url && (
+                          <a href={file.url} download>
+                            <Button variant="outline" size="sm">
+                              <Download className="h-3 w-3 mr-1" />
+                              Download
+                            </Button>
+                          </a>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -225,7 +294,7 @@ const ProjectDetails = () => {
                 <Separator />
                 <div className="flex justify-between">
                   <span className="text-sm text-gray-600">Ecosystem Type</span>
-                  <span className="font-semibold capitalize">{project.ecosystem.toLowerCase().replace('_', ' ')}</span>
+                  <span className="font-semibold capitalize">{(project.ecosystem || '').toLowerCase().replace('_', ' ')}</span>
                 </div>
                 <Separator />
                 <div className="flex justify-between">

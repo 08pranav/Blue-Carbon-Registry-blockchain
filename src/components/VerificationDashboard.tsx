@@ -196,7 +196,7 @@ export function VerificationDashboard({ className }: VerificationDashboardProps)
           : p
       ));
 
-      toast.success(`Project ${verificationDecision.toLowerCase()} successfully`);
+      toast.success(`Project ${(verificationDecision || '').toLowerCase()} successfully`);
       setShowVerificationDialog(false);
       setSelectedProject(null);
       setVerificationNotes('');
@@ -240,9 +240,9 @@ export function VerificationDashboard({ className }: VerificationDashboardProps)
 
   const filteredProjects = projects.filter(project => {
     const matchesSearch = 
-      project.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      project.location.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      project.submitter.toLowerCase().includes(searchQuery.toLowerCase());
+      (project.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (project.location || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (project.submitter || '').toLowerCase().includes(searchQuery.toLowerCase());
     
     const matchesStatus = statusFilter === 'all' || 
       (statusFilter === 'pending' && project.status === 'PENDING') ||
@@ -250,7 +250,7 @@ export function VerificationDashboard({ className }: VerificationDashboardProps)
       (statusFilter === 'completed' && (project.status === 'VERIFIED' || project.status === 'REJECTED'));
     
     const matchesPriority = priorityFilter === 'all' || 
-      project.priority?.toLowerCase() === priorityFilter.toLowerCase();
+      (project.priority || '').toLowerCase() === priorityFilter.toLowerCase();
     
     return matchesSearch && matchesStatus && matchesPriority;
   });

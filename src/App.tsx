@@ -23,8 +23,11 @@ import Analytics from "./pages/Analytics";
 import Marketplace from "./pages/Marketplace";
 import AdminDashboard from "./pages/AdminDashboard";
 import Map from "./pages/Map";
+import About from "./pages/About";
+import HowItWorks from "./pages/HowItWorks";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import NotFound from "./pages/NotFound";
+import { CameraTest } from "@/components/CameraTest";
 
 const queryClient = new QueryClient();
 
@@ -45,12 +48,16 @@ const App = () => (
               <Routes>
               {/* Public Routes */}
               <Route path="/" element={<Home />} />
+              <Route path="/about" element={<About />} />
+              <Route path="/how-it-works" element={<HowItWorks />} />
               <Route path="/registry" element={<Registry />} />
               <Route path="/map" element={<Map />} />
               <Route path="/auth-demo" element={<AuthDemo />} />
+              <Route path="/camera-test" element={<CameraTest />} />
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
               <Route path="/projects/:id" element={<ProjectDetails />} />
+              <Route path="/project-details" element={<ProjectDetails />} />
               
               {/* Protected Routes */}
               <Route path="/dashboard" element={

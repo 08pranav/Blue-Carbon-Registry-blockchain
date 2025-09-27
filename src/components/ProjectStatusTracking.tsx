@@ -196,9 +196,9 @@ export function ProjectStatusTracking({ className }: ProjectStatusTrackingProps)
     const location = (project as any).location ?? '';
     const status = (project as any).status ?? '';
 
-    const matchesSearch = name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          location.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || String(status).toLowerCase() === statusFilter.toLowerCase();
+    const matchesSearch = (name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          (location || '').toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesStatus = statusFilter === 'all' || String(status || '').toLowerCase() === statusFilter.toLowerCase();
     return matchesSearch && matchesStatus;
   });
 
@@ -313,7 +313,7 @@ export function ProjectStatusTracking({ className }: ProjectStatusTrackingProps)
               size="sm"
               onClick={() => setStatusFilter(status)}
             >
-              {status.replace('_', ' ').charAt(0).toUpperCase() + status.slice(1).replace('_', ' ')}
+              {(status || '').replace('_', ' ').charAt(0).toUpperCase() + (status || '').slice(1).replace('_', ' ')}
             </Button>
           ))}
         </div>
@@ -366,7 +366,7 @@ export function ProjectStatusTracking({ className }: ProjectStatusTrackingProps)
 
                         <div className="flex items-center gap-3">
                           <Badge variant={getStatusColor(project.status)}>
-                            {project.status.replace('_', ' ')}
+                            {(project.status || '').replace('_', ' ')}
                           </Badge>
                           <span className="text-sm text-gray-500">
                             {getStatusMessage(project.status)}
@@ -488,7 +488,7 @@ function ProjectDetailModal({ project, onClose }: ProjectDetailModalProps) {
             <div>
               <p className="text-sm font-medium text-gray-500">Status</p>
               <Badge variant={getStatusColor(project.status)}>
-                {project.status.replace('_', ' ')}
+                {(project.status || '').replace('_', ' ')}
               </Badge>
             </div>
           </div>
@@ -511,7 +511,7 @@ function ProjectDetailModal({ project, onClose }: ProjectDetailModalProps) {
                   </div>
                   <div className="flex-1 pb-4">
                     <div className="flex items-center justify-between mb-1">
-                      <p className="font-medium">{event.status.replace('_', ' ')}</p>
+                      <p className="font-medium">{(event.status || '').replace('_', ' ')}</p>
                       <p className="text-sm text-gray-500">
                         {new Date(event.date).toLocaleDateString()}
                       </p>

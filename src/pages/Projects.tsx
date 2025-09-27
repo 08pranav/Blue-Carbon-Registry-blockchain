@@ -63,9 +63,9 @@ const Projects = () => {
 
   // Filter projects
   const filteredProjects = projects.filter(project => {
-    const matchesSearch = project.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         project.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         project.location.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch = (project.title || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         (project.description || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         (project.location || '').toLowerCase().includes(searchQuery.toLowerCase());
     
     const matchesStatus = statusFilter === 'all' || project.status === statusFilter;
     const matchesEcosystem = ecosystemFilter === 'all' || project.ecosystem === ecosystemFilter;
@@ -399,7 +399,7 @@ const Projects = () => {
                     
                     <div className="flex items-center gap-2">
                       <Button variant="outline" size="sm" asChild>
-                        <Link to={`/project-details?id=${project.id}`}>
+                        <Link to={`/projects/${project.id}`}>
                           <Eye className="h-3 w-3 mr-1" />
                           View
                         </Link>

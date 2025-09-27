@@ -156,9 +156,9 @@ export function getUserPermissions(role: UserRole): RolePermissions {
   return ROLE_PERMISSIONS[role] || ROLE_PERMISSIONS.NGO;
 }
 
-export function hasPermission(role: UserRole, permission: string): boolean {
-  if (!role) return false;
-  const permissions = getUserPermissions(role);
+export function hasPermission(role: UserRole | null | undefined, permission: string): boolean {
+  if (!role || !permission) return false;
+  const permissions = getUserPermissions(role as UserRole);
   return permissions && permissions[permission] ? permissions[permission].allowed : false;
 }
 
@@ -177,17 +177,21 @@ export function getDeniedPermissions(role: UserRole): Permission[] {
   return Object.values(permissions).filter(p => !p.allowed);
 }
 
-export function getRoleDisplayName(role: UserRole): string {
+export function getRoleDisplayName(role: UserRole | string | null | undefined): string {
+  if (!role) return 'Guest';
+  
   const names = {
     ADMIN: 'System Administrator',
-    AUDITOR: 'Project Auditor & Verifier',
+    AUDITOR: 'Project Auditor & Verifier', 
     NGO: 'NGO & Community Organization',
     BUYER: 'Carbon Credit Buyer'
   };
-  return names[role] || role;
+  return names[role as UserRole] || (typeof role === 'string' ? role : 'Unknown');
 }
 
-export function getRoleDescription(role: UserRole): string {
+export function getRoleDescription(role: UserRole | null | undefined): string {
+  if (!role) return 'Guest user with limited access';
+  
   const descriptions = {
     ADMIN: 'Full system access with administrative privileges and user management',
     AUDITOR: 'Project verification, data validation, and comprehensive auditing capabilities',

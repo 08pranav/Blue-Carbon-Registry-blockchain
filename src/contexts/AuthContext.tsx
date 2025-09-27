@@ -1,8 +1,9 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { type User } from '@/lib/api';
 import { apiService } from '@/services/api';
-import { toast } from 'sonner';
+import { auth as authNotifications } from '@/lib/notifications';
 import { type UserRole, hasPermission, getUserPermissions, PERMISSIONS } from '@/lib/permissions';
+import { LoadingSpinner } from '@/components/ui/loading-spinner';
 
 interface AuthContextType {
   user: User | null;
@@ -64,7 +65,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
           // Try to get fresh user data from API
           const { user: profileUser } = await apiService.getProfile();
           setUser(profileUser);
-          setUser(userData.user);
         } catch (apiError) {
           // If API fails (e.g., 401), fall back to demo user and regenerate a valid demo token
           const demoUser = {
@@ -132,7 +132,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       localStorage.setItem('user', JSON.stringify(userData));
       setUser(userData);
       
-      toast.success(`Welcome back, ${userData.name}!`);
+      authNotifications.loginSuccess(userData.name);
     } catch (error) {
       console.error('Login failed:', error);
       throw error;
@@ -155,7 +155,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       localStorage.setItem('user', JSON.stringify(userData));
       setUser(userData);
       
-      toast.success(`Account created successfully! Welcome, ${userData.name}!`);
+      authNotifications.loginSuccess(userData.name);
     } catch (error) {
       console.error('Registration failed:', error);
       throw error;
@@ -166,7 +166,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     localStorage.removeItem('auth-token');
     localStorage.removeItem('user');
     setUser(null);
-    toast.info('You have been logged out');
+    authNotifications.logout();
   };
 
   const updateProfile = async (data: {
@@ -181,7 +181,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       localStorage.setItem('user', JSON.stringify(updatedUser));
       setUser(updatedUser);
       
-      toast.success('Profile updated successfully');
+      authNotifications.loginSuccess(updatedUser.name);
     } catch (error) {
       console.error('Profile update failed:', error);
       throw error;
@@ -212,6 +212,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
     canBuyCredits: checkPermission(PERMISSIONS.BUY_CREDITS),
     canViewAdminDashboard: checkPermission(PERMISSIONS.VIEW_ADMIN_DASHBOARD),
   };
+
+  if (loading) {
+    return (
+      <LoadingSpinner 
+        fullScreen 
+        size="lg" 
+        variant="brand" 
+        text="Initializing Blue Carbon Registry..." 
+      />
+    );
+  }
 
   return (
     <AuthContext.Provider value={value}>

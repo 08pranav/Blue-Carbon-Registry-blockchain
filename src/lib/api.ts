@@ -1,8 +1,10 @@
 // API Client for Blue Carbon Registry Backend
 import { toast } from "sonner";
 
+import { apiConfig } from '@/lib/config';
+
 // Backend Configuration
-const API_BASE_URL = "http://localhost:3001";
+const API_BASE_URL = apiConfig.baseUrl;
 
 // Types
 export interface User {

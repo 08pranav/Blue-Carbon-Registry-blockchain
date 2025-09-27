@@ -195,7 +195,7 @@ const Header = () => {
                 <Button variant="ghost" className="relative h-8 w-8 rounded-full p-0">
                   <Avatar className="h-8 w-8">
                     <AvatarFallback className="bg-blue-100 text-blue-700">
-                      {user?.name.split(' ').map(n => n[0]).join('').toUpperCase()}
+                      {user?.name ? user.name.split(' ').map(n => n[0]).join('').toUpperCase() : 'U'}
                     </AvatarFallback>
                   </Avatar>
                 </Button>
