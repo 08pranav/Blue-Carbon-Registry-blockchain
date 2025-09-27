@@ -56,7 +56,13 @@ const Verification = () => {
         priority: 'MEDIUM' as const,
         description: `${verification.ecosystemType} restoration project in ${verification.location}`,
         methodology: 'VM0033 - Methodology for Tidal Wetland and Seagrass Restoration'
-      }));
+      }))
+      // Shortlisted first
+      .sort((a: any, b: any) => {
+        const aS = a.aiDecision?.status === 'SHORTLIST' ? 0 : 1;
+        const bS = b.aiDecision?.status === 'SHORTLIST' ? 0 : 1;
+        return aS - bS;
+      });
       setPendingProjects(projects);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch pending verifications');

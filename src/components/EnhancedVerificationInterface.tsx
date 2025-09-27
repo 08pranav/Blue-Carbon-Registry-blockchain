@@ -431,7 +431,7 @@ export function EnhancedVerificationInterface({ className }: EnhancedVerificatio
                         </div>
                         <div className="flex items-center gap-1">
                           <Leaf className="h-4 w-4" />
-                          <span>{project.carbonEstimate.toLocaleString()} tCO₂</span>
+                          <span>{(project.carbonCreditsEstimated || project.carbonEstimate || 0).toLocaleString()} tCO₂</span>
                         </div>
                       </div>
                       
@@ -545,7 +545,7 @@ export function EnhancedVerificationInterface({ className }: EnhancedVerificatio
                         </div>
                         <div>
                           <Label className="text-sm font-medium text-gray-500">Carbon Estimate</Label>
-                          <p className="font-medium">{selectedProject.carbonEstimate.toLocaleString()} tCO₂</p>
+                          <p className="font-medium">{(selectedProject.carbonCreditsEstimated || selectedProject.carbonEstimate || 0).toLocaleString()} tCO₂</p>
                         </div>
                         <div>
                           <Label className="text-sm font-medium text-gray-500">Submission Date</Label>

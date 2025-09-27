@@ -141,6 +141,98 @@ function generateProjectId() {
   return 'PRJ-' + Date.now().toString(36).toUpperCase();
 }
 
+// Utility: Haversine distance in meters
+function haversine(lat1, lon1, lat2, lon2) {
+  function toRad(d) { return d * Math.PI / 180; }
+  const R = 6371000;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+            Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+            Math.sin(dLon/2) * Math.sin(dLon/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c;
+}
+
+async function aiReviewEvidence(files, projectCoords, ecosystem) {
+  const exifr = require('exifr');
+  const sizeOf = require('image-size');
+  let sharp;
+  try { sharp = require('sharp'); } catch (e) { sharp = null; }
+  const results = [];
+  let score = 0;
+  let semanticHits = 0;
+  for (const f of files) {
+    const checks = [];
+    // Type check
+    const okType = /jpeg|jpg|png/.test((f.mimetype || '').toLowerCase());
+    if (!okType) checks.push('Unsupported file type'); else score += 1;
+    // Size check
+    if (f.size < 30 * 1024) checks.push('Image too small (<30KB)'); else score += 1;
+    if (f.size > 10 * 1024 * 1024) checks.push('Image too large (>10MB)');
+    // Dimension check
+    try {
+      const dim = sizeOf(f.path);
+      if (dim.width < 800 || dim.height < 600) {
+        checks.push(`Low resolution (${dim.width}x${dim.height})`);
+      } else {
+        score += 1;
+      }
+    } catch (e) {
+      // ignore
+    }
+    // EXIF GPS check (if available)
+    try {
+      const exif = await exifr.parse(f.path, { gps: true });
+      if (exif && exif.latitude && exif.longitude && projectCoords) {
+        const d = haversine(exif.latitude, exif.longitude, projectCoords.latitude, projectCoords.longitude);
+        if (d > 1000) {
+          checks.push(`Geo mismatch: EXIF shows ${(d/1000).toFixed(1)}km from project location`);
+        } else {
+          score += 1;
+        }
+      }
+    } catch (e) { /* ignore */ }
+
+    // Simple semantic checks
+    const signals = { filenameKeyword: false, greenDominance: false };
+    try {
+      const name = (f.originalname || f.filename || '').toLowerCase();
+      if (ecosystem === 'MANGROVE' && name.includes('mangrove')) signals.filenameKeyword = true;
+      if (ecosystem === 'SEAGRASS' && (name.includes('seagrass') || name.includes('sea grass'))) signals.filenameKeyword = true;
+      if (ecosystem === 'SALT_MARSH' && (name.includes('saltmarsh') || (name.includes('salt') && name.includes('marsh')))) signals.filenameKeyword = true;
+
+      // Color dominance heuristic (requires sharp)
+      if (sharp && /jpeg|jpg|png/.test((f.mimetype || '').toLowerCase())) {
+        const stats = await sharp(f.path).stats();
+        const r = stats.channels[0]?.mean || 0;
+        const g = stats.channels[1]?.mean || 0;
+        const b = stats.channels[2]?.mean || 0;
+        if (g > Math.max(r, b) + 10 && g > 90) {
+          signals.greenDominance = true;
+        }
+      }
+    } catch (e) {
+      // ignore semantic errors
+    }
+
+    if (signals.filenameKeyword || signals.greenDominance) {
+      semanticHits += 1;
+    }
+
+    results.push({ file: f.originalname || f.filename, ok: checks.length === 0, issues: checks, signals });
+  }
+
+  let status = 'NEEDS_REVIEW';
+  const basicPass = results.every(r => r.ok) && score >= Math.max(3, files.length * 2);
+  const semanticOk = semanticHits >= 1; // at least one semantic signal across evidence
+  if (results.filter(r => !r.ok).length >= Math.ceil(files.length / 2)) status = 'REJECT';
+  else if (basicPass && semanticOk && files.length > 0) status = 'APPROVE';
+  else status = 'NEEDS_REVIEW';
+
+  return { status, score, results, ecosystem, semanticOk, basicPass };
+}
+
 // Routes
 
 // Authentication routes
@@ -237,7 +329,7 @@ app.delete('/api/projects/:id', (req, res) => {
   return res.json({ message: 'Project deleted', project: removed });
 });
 
-app.post('/api/projects', upload.array('files', 10), (req, res) => {
+app.post('/api/projects', upload.array('files', 10), async (req, res) => {
   try {
     const {
       title,
@@ -273,6 +365,16 @@ app.post('/api/projects', upload.array('files', 10), (req, res) => {
       uploadedAt: new Date().toISOString()
     })) : [];
 
+    // AI review of evidence
+    const coords = { latitude: parseFloat(latitude), longitude: parseFloat(longitude) };
+    const aiReview = await aiReviewEvidence(evidenceFiles.map(ef => ({
+      path: ef.path,
+      mimetype: ef.type,
+      size: ef.size,
+      originalname: ef.name,
+      filename: ef.filename
+    })), coords, ecosystem);
+
     // Create new project
     const newProject = {
       id: generateProjectId(),
@@ -280,10 +382,7 @@ app.post('/api/projects', upload.array('files', 10), (req, res) => {
       description,
       ecosystem,
       location,
-      coordinates: {
-        latitude: parseFloat(latitude),
-        longitude: parseFloat(longitude)
-      },
+      coordinates: coords,
       area: parseFloat(area) || 0,
       carbonCreditsEstimated: parseInt(carbonCreditsEstimated) || 0,
       species: species || '',
@@ -294,6 +393,7 @@ app.post('/api/projects', upload.array('files', 10), (req, res) => {
       submitterName: submitterName || 'Unknown User',
       submitterOrganization: submitterOrganization || 'Unknown Organization',
       evidenceFiles,
+      aiReview,
       submissionDate: new Date().toISOString(),
       lastUpdated: new Date().toISOString()
     };
@@ -301,11 +401,12 @@ app.post('/api/projects', upload.array('files', 10), (req, res) => {
     // Add to projects array
     projects.push(newProject);
 
-    console.log(`New project submitted: ${title} by ${submitterName}`);
+    console.log(`New project submitted: ${title} by ${submitterName} [AI: ${aiReview.status}]`);
 
     res.status(201).json({
-      message: 'Project submitted successfully',
-      project: newProject
+      message: aiReview.status === 'REJECT' ? 'Evidence failed AI checks. Please review issues.' : 'Project submitted successfully',
+      project: newProject,
+      aiReview
     });
 
   } catch (error) {
@@ -554,6 +655,24 @@ app.get('/api/health', (req, res) => {
     transactions: transactions.length,
     marketplaceListings: projects.filter(p => p.status === 'VERIFIED').length
   });
+});
+
+// AI endpoints
+app.get('/api/ai/review/:id', async (req, res) => {
+  const project = projects.find(p => p.id === req.params.id);
+  if (!project) return res.status(404).json({ error: 'Project not found' });
+  const files = project.evidenceFiles || [];
+  const coords = project.coordinates;
+  const aiReview = await aiReviewEvidence(files.map(ef => ({
+    path: ef.path,
+    mimetype: ef.type,
+    size: ef.size,
+    originalname: ef.name,
+    filename: ef.filename
+  })), coords, project.ecosystem);
+  project.aiReview = aiReview;
+  project.lastUpdated = new Date().toISOString();
+  return res.json({ aiReview });
 });
 
 // Minimal blockchain endpoints (mocked until on-chain integration is wired)

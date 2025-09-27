@@ -23,6 +23,18 @@ interface User {
   location?: string;
 }
 
+interface AiReviewResultItem {
+  file: string;
+  ok: boolean;
+  issues: string[];
+}
+
+interface AiReview {
+  status: 'APPROVE' | 'NEEDS_REVIEW' | 'REJECT';
+  score: number;
+  results: AiReviewResultItem[];
+}
+
 interface Project {
   id: string;
   title?: string;
@@ -60,6 +72,7 @@ interface Project {
   verificationNotes?: string;
   verifiedAt?: string;
   priority?: 'HIGH' | 'MEDIUM' | 'LOW';
+  aiReview?: AiReview;
 }
 
 interface AdminStats {
@@ -306,6 +319,11 @@ class ApiService {
     });
   }
 
+  // AI review
+  async getAiReview(projectId: string): Promise<{ aiReview: AiReview }> {
+    return this.request<{ aiReview: AiReview }>(`/ai/review/${projectId}`);
+  }
+
   // Verifications (for auditors)
   async getPendingVerifications(): Promise<{ verifications: Verification[] }> {
     return this.request<{ verifications: Verification[] }>('/verifications/pending');
@@ -523,4 +541,4 @@ class ApiService {
 }
 
 export const apiService = new ApiService();
-export type { User, Project, AdminStats, Verification, MarketplaceListing, MarketStats, Transaction };
+export type { User, Project, AdminStats, Verification, MarketplaceListing, MarketStats, Transaction, AiReview, AiReviewResultItem };

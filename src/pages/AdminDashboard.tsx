@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { apiService, type AdminStats, type User, type Project } from '@/services/api';
+import { apiService, type AdminStats, type User, type Project, type Verification } from '@/services/api';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -59,6 +59,7 @@ const AdminDashboard = () => {
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [pendingVerifications, setPendingVerifications] = useState<Verification[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [activeTab, setActiveTab] = useState('overview');
@@ -68,15 +69,25 @@ const AdminDashboard = () => {
     setLoading(true);
     setError(null);
     try {
-      const [statsResponse, usersResponse, projectsResponse] = await Promise.all([
+      const [statsResponse, usersResponse, projectsResponse, pendingResponse] = await Promise.all([
         apiService.getAdminStats(),
         apiService.getAdminUsers(),
-        apiService.getProjects()
+        apiService.getProjects(),
+        apiService.getPendingVerifications()
       ]);
       
       setStats(statsResponse);
       setUsers(usersResponse.users);
-      setProjects(projectsResponse.projects.map(p => ({ ...p, priority: 'MEDIUM' as const })));
+      setProjects(projectsResponse.projects.map(p => ({ 
+        ...p, 
+        priority: 'MEDIUM' as const,
+        name: (p as any).name || (p as any).title || 'Project'
+      })));
+      setPendingVerifications(pendingResponse.verifications.sort((a: any, b: any) => {
+        const aS = a.aiDecision?.status === 'SHORTLIST' ? 0 : 1;
+        const bS = b.aiDecision?.status === 'SHORTLIST' ? 0 : 1;
+        return aS - bS;
+      }));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch admin data');
       console.error('Error fetching admin data:', err);
@@ -293,21 +304,31 @@ const AdminDashboard = () => {
                   <CardDescription>Projects awaiting admin review</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {projects.filter(p => p.status === 'PENDING' || p.status === 'UNDER_REVIEW').map(project => (
-                    <div key={project.id} className="flex items-center justify-between p-4 border rounded-lg">
+                  {pendingVerifications.map(v => (
+                    <div key={v.id} className="flex items-center justify-between p-4 border rounded-lg">
                       <div>
-                        <h4 className="font-semibold">{project.name}</h4>
-                        <p className="text-sm text-gray-500">{project.submitter} • {project.location}</p>
-                        <div className="flex items-center space-x-2 mt-2">
-                          <Badge variant={getPriorityColor(project.priority)}>{project.priority}</Badge>
-                          <Badge variant={getStatusColor(project.status)}>{project.status}</Badge>
+                        <h4 className="font-semibold flex items-center gap-2">
+                          {v.name}
+                          {v.aiDecision && (
+                            <Badge className={`text-xs ${v.aiDecision.status === 'SHORTLIST' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                              AI: {v.aiDecision.status === 'SHORTLIST' ? 'Shortlist' : 'Hold'}
+                            </Badge>
+                          )}
+                        </h4>
+                        <p className="text-sm text-gray-500">{v.submitter.name} • {v.location}</p>
+                        <div className="flex items-center gap-2 mt-2 text-xs text-gray-600">
+                          <Badge variant="outline">{v.ecosystemType}</Badge>
+                          <Badge variant={getStatusColor(v.status)}>{v.status}</Badge>
+                          {v.aiDecision?.reasons?.length ? (
+                            <span className="line-clamp-1">{v.aiDecision.reasons.join('; ')}</span>
+                          ) : null}
                         </div>
                       </div>
                       <div className="flex space-x-2">
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => handleVerifyProject(project.id, 'VERIFIED')}
+                          onClick={() => handleVerifyProject(v.id, 'VERIFIED')}
                         >
                           <CheckCircle className="w-3 h-3 mr-1" />
                           Verify
@@ -315,7 +336,7 @@ const AdminDashboard = () => {
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => handleVerifyProject(project.id, 'REJECTED')}
+                          onClick={() => handleVerifyProject(v.id, 'REJECTED')}
                         >
                           <XCircle className="w-3 h-3 mr-1" />
                           Reject
@@ -438,13 +459,18 @@ const AdminDashboard = () => {
                               </div>
                               <div className="flex items-center">
                                 <Leaf className="w-4 h-4 mr-1" />
-                                {project.carbonEstimate.toLocaleString()} tCO2
+                                {(project.carbonCreditsEstimated || project.carbonEstimate || 0).toLocaleString()} tCO2
                               </div>
                             </div>
                             <div className="flex items-center space-x-2 mt-3">
                               <Badge variant={getStatusColor(project.status)}>{project.status}</Badge>
                               <Badge variant={getPriorityColor(project.priority)}>{project.priority}</Badge>
                               <Badge variant="outline">{project.ecosystem}</Badge>
+                              {project.aiReview?.status && (
+                                <Badge className={`${project.aiReview.status === 'APPROVE' ? 'bg-green-100 text-green-800' : project.aiReview.status === 'REJECT' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                                  AI: {project.aiReview.status === 'APPROVE' ? 'Approve' : project.aiReview.status === 'REJECT' ? 'Reject' : 'Needs Review'}
+                                </Badge>
+                              )}
                             </div>
                           </div>
                           <div className="flex items-center space-x-2">
@@ -505,7 +531,7 @@ const AdminDashboard = () => {
                                 <span className="font-medium">Projects:</span> {user.projectsCount}
                               </div>
                               <div>
-                                <span className="font-medium">Credits:</span> {user.creditsEarned.toLocaleString()}
+                                <span className="font-medium">Credits:</span> {(user.creditsEarned ?? 0).toLocaleString()}
                               </div>
                             </div>
                             <div className="flex items-center space-x-2 mt-3">

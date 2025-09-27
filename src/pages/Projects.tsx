@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { 
@@ -36,6 +37,9 @@ const Projects = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [ecosystemFilter, setEcosystemFilter] = useState<string>('all');
+  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+  const [showDetails, setShowDetails] = useState(false);
+  const [aiLoadingId, setAiLoadingId] = useState<string | null>(null);
 
   // Fetch projects from backend
   const fetchProjects = async () => {
@@ -59,6 +63,15 @@ const Projects = () => {
 
   useEffect(() => {
     fetchProjects();
+  }, [user]);
+
+  // Auto-refresh every 12 seconds
+  useEffect(() => {
+    if (!user) return;
+    const interval = setInterval(() => {
+      fetchProjects();
+    }, 12000);
+    return () => clearInterval(interval);
   }, [user]);
 
   // Filter projects
@@ -100,6 +113,16 @@ const Projects = () => {
     }
   };
 
+  const getAiStatusBadge = (ai?: Project['aiReview']) => {
+    if (!ai?.status) return null;
+    let colorClasses = 'bg-gray-100 text-gray-800';
+    let label = 'AI: Review';
+    if (ai.status === 'APPROVE') { colorClasses = 'bg-green-100 text-green-800'; label = 'AI: Approve'; }
+    if (ai.status === 'NEEDS_REVIEW') { colorClasses = 'bg-yellow-100 text-yellow-800'; label = 'AI: Needs Review'; }
+    if (ai.status === 'REJECT') { colorClasses = 'bg-red-100 text-red-800'; label = 'AI: Reject'; }
+    return <Badge className={colorClasses}>{label}</Badge>;
+  };
+
   const handleDeleteProject = async (id: string) => {
     if (!confirm('Are you sure you want to delete this project? This action cannot be undone.')) return;
 
@@ -121,6 +144,27 @@ const Projects = () => {
       setProjects(prevProjects);
       console.error('Delete failed', err);
       toast.error('Failed to delete project');
+    }
+  };
+
+  const handleQuickView = (project: Project) => {
+    setSelectedProject(project);
+    setShowDetails(true);
+  };
+
+  const handleReRunAi = async (project: Project) => {
+    try {
+      setAiLoadingId(project.id);
+      const { aiReview } = await apiService.getAiReview(project.id);
+      // Update project in list and in modal state
+      setProjects(prev => prev.map(p => p.id === project.id ? { ...p, aiReview } : p));
+      setSelectedProject(prev => prev && prev.id === project.id ? { ...prev, aiReview } as Project : prev);
+      toast.success(`AI review: ${aiReview.status}`);
+    } catch (err: any) {
+      console.error('AI review failed', err);
+      toast.error(err?.message || 'Failed to re-run AI review');
+    } finally {
+      setAiLoadingId(null);
     }
   };
 
@@ -373,6 +417,7 @@ const Projects = () => {
                         <Badge className={getEcosystemColor(project.ecosystem)}>
                           {project.ecosystem.toLowerCase().replace('_', ' ')}
                         </Badge>
+                        {getAiStatusBadge(project.aiReview)}
                       </div>
                       
                       <p className="text-gray-600 mb-3">{project.description}</p>
@@ -403,6 +448,9 @@ const Projects = () => {
                           <Eye className="h-3 w-3 mr-1" />
                           View
                         </Link>
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={() => handleQuickView(project)}>
+                        Quick View
                       </Button>
                       {user.role === 'NGO' && project.submitterId === user.id && (
                         <>
@@ -437,6 +485,109 @@ const Projects = () => {
           </div>
         )}
       </div>
+
+      {/* Project Quick View Modal */}
+      {selectedProject && (
+        <Dialog open={showDetails} onOpenChange={setShowDetails}>
+          <DialogContent className="max-w-3xl">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <span className="text-lg font-semibold">{selectedProject.title}</span>
+                {getAiStatusBadge(selectedProject.aiReview)}
+              </DialogTitle>
+              <DialogDescription>
+                {selectedProject.location} • {new Date(selectedProject.submissionDate || selectedProject.lastUpdated || Date.now()).toLocaleDateString()}
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Left: Evidence and AI */}
+              <div className="md:col-span-2 space-y-4">
+                <div>
+                  <div className="text-sm font-medium mb-2">Evidence</div>
+                  {selectedProject.evidenceFiles?.length ? (
+                    <div className="grid grid-cols-2 gap-2">
+                      {selectedProject.evidenceFiles.map((file, idx) => {
+                        const isImg = (file.type || '').startsWith('image') && file.url;
+                        return (
+                          <div key={idx} className="border rounded-md p-2">
+                            {isImg ? (
+                              <img src={file.url!} alt={file.name || file.filename} className="h-28 w-full object-cover rounded" />
+                            ) : (
+                              <div className="text-sm">{file.name || file.filename}</div>
+                            )}
+                            <div className="text-xs text-gray-500 mt-1">{(file.type || '').toUpperCase()}</div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="text-sm text-gray-500">No evidence uploaded.</div>
+                  )}
+                </div>
+
+                <div className="border rounded-md p-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="text-sm font-medium">AI Evidence Review</div>
+                    <Button size="sm" variant="outline" onClick={() => handleReRunAi(selectedProject)} disabled={aiLoadingId === selectedProject.id}>
+                      {aiLoadingId === selectedProject.id ? 'Running…' : 'Re-run AI Review'}
+                    </Button>
+                  </div>
+                  {selectedProject.aiReview ? (
+                    <div className="space-y-2">
+                      <div className="text-sm">Status: <strong>{selectedProject.aiReview.status}</strong> • Score: <strong>{selectedProject.aiReview.score}</strong></div>
+                      <div className="space-y-2 max-h-40 overflow-auto">
+                        {selectedProject.aiReview.results.map((r, i) => (
+                          <div key={i} className="text-xs p-2 border rounded">
+                            <div className="font-medium">{r.file}</div>
+                            {r.ok ? (
+                              <div className="text-green-600">Passed</div>
+                            ) : (
+                              <ul className="list-disc ml-4 text-red-600">
+                                {r.issues.map((iss, j) => <li key={j}>{iss}</li>)}
+                              </ul>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-sm text-gray-500">No AI review data. Run the review to get insights.</div>
+                  )}
+                </div>
+              </div>
+
+              {/* Right: Mini location and meta */}
+              <div className="space-y-4">
+                <div className="border rounded-md p-3">
+                  <div className="text-sm font-medium mb-2">Project Location</div>
+                  <div className="h-32 w-full bg-gradient-to-b from-blue-100 to-green-100 border rounded" />
+                  <div className="text-xs text-gray-600 mt-2">
+                    Lat: {selectedProject.coordinates?.latitude?.toFixed?.(4)} • Lng: {selectedProject.coordinates?.longitude?.toFixed?.(4)}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div className="p-2 border rounded">
+                    <div className="text-gray-600">Area</div>
+                    <div className="font-semibold">{selectedProject.area} ha</div>
+                  </div>
+                  <div className="p-2 border rounded">
+                    <div className="text-gray-600">Credits Est.</div>
+                    <div className="font-semibold">{(selectedProject.carbonCreditsEstimated || selectedProject.carbonEstimate || 0).toLocaleString()}</div>
+                  </div>
+                </div>
+
+                <div className="flex gap-2">
+                  <Button variant="outline" asChild className="w-full">
+                    <Link to={`/projects/${selectedProject.id}`}>Open Full Details</Link>
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 };

@@ -66,6 +66,8 @@ interface VerificationProject {
   verificationNotes?: string;
   priority: 'HIGH' | 'MEDIUM' | 'LOW';
   reviewDeadline?: string;
+  aiDecision?: { status: 'SHORTLIST' | 'HOLD'; reasons: string[] };
+  aiReview?: any;
 }
 
 interface VerificationStats {
@@ -103,30 +105,35 @@ export function VerificationDashboard({ className }: VerificationDashboardProps)
   const fetchVerificationData = async () => {
     setLoading(true);
     try {
-      const response = await apiService.getProjects();
+      const response = await apiService.getPendingVerifications();
       
-      // Transform projects for verification view
-      const verificationProjects: VerificationProject[] = response.projects.map(project => ({
-        ...project,
-        priority: assignPriority(project),
-        evidenceFiles: [
-          {
-            id: '1',
-            name: 'Site_Photo_Before.jpg',
-            url: '/api/placeholder/400/300',
-            type: 'image/jpeg',
-            size: 2048576
-          },
-          {
-            id: '2',
-            name: 'GPS_Survey_Data.pdf',
-            url: '#',
-            type: 'application/pdf',
-            size: 1024000
-          }
-        ],
-        reviewDeadline: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
-      }));
+      // Transform verifications for this view
+      const verificationProjects: VerificationProject[] = response.verifications.map((v: any) => ({
+        id: v.id,
+        name: v.name,
+        description: `${v.ecosystemType} restoration project in ${v.location}`,
+        ecosystem: v.ecosystemType,
+        location: v.location,
+        coordinates: v.coordinates,
+        area: v.areaSize,
+        carbonEstimate: v.estimatedCarbonCapture,
+        status: v.status,
+        submissionDate: v.submissionTimestamp,
+        lastUpdated: v.submissionTimestamp,
+        submitter: v.submitter.name,
+        submitterOrganization: v.submitter.organization,
+        evidenceFiles: v.evidenceFiles || [],
+        priority: assignPriority({ carbonEstimate: v.estimatedCarbonCapture, area: v.areaSize }),
+        reviewDeadline: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+        aiDecision: v.aiDecision,
+        aiReview: v.aiReview
+      }))
+      // Shortlisted first
+      .sort((a, b) => {
+        const aS = a.aiDecision?.status === 'SHORTLIST' ? 0 : 1;
+        const bS = b.aiDecision?.status === 'SHORTLIST' ? 0 : 1;
+        return aS - bS;
+      });
 
       setProjects(verificationProjects);
       
@@ -419,6 +426,11 @@ export function VerificationDashboard({ className }: VerificationDashboardProps)
                     <div className="flex items-center gap-2 mb-2">
                       {getStatusIcon(project.status)}
                       <h3 className="text-lg font-semibold">{project.name}</h3>
+                      {project.aiDecision && (
+                        <Badge className={`text-xs ${project.aiDecision.status === 'SHORTLIST' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                          AI: {project.aiDecision.status === 'SHORTLIST' ? 'Shortlist' : 'Hold'}
+                        </Badge>
+                      )}
                       <Badge variant={getPriorityColor(project.priority)}>
                         {project.priority}
                       </Badge>
@@ -444,6 +456,9 @@ export function VerificationDashboard({ className }: VerificationDashboardProps)
                         <span>{new Date(project.submissionDate).toLocaleDateString()}</span>
                       </div>
                     </div>
+                    {project.aiDecision?.reasons?.length ? (
+                      <div className="text-xs text-gray-500 mt-2">{project.aiDecision.reasons.join('; ')}</div>
+                    ) : null}
                     
                     <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 text-sm mt-3">
                       <div className="flex items-center gap-2">
@@ -471,6 +486,11 @@ export function VerificationDashboard({ className }: VerificationDashboardProps)
                       {project.reviewDeadline && project.status === 'PENDING' && (
                         <Badge variant="outline" className="text-orange-600">
                           Due: {new Date(project.reviewDeadline).toLocaleDateString()}
+                        </Badge>
+                      )}
+                      {project.aiDecision && (
+                        <Badge variant="outline" className={project.aiDecision.status === 'SHORTLIST' ? 'text-green-700 border-green-200' : 'text-amber-700 border-amber-200'}>
+                          AI {project.aiDecision.status}
                         </Badge>
                       )}
                     </div>
