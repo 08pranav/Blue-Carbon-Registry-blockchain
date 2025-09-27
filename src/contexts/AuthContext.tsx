@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { authAPI, type User } from '@/lib/api';
+import { type User } from '@/lib/api';
+import { apiService } from '@/services/api';
 import { toast } from 'sonner';
 import { type UserRole, hasPermission, getUserPermissions, PERMISSIONS } from '@/lib/permissions';
 
@@ -61,7 +62,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
       if (token && storedUser) {
         try {
           // Try to get fresh user data from API
-          const userData = await authAPI.getProfile();
+          const { user: profileUser } = await apiService.getProfile();
+          setUser(profileUser);
           setUser(userData.user);
         } catch (apiError) {
           // If API fails (e.g., 401), fall back to demo user and regenerate a valid demo token
@@ -123,7 +125,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const login = async (email: string, password: string) => {
     try {
-      const response = await authAPI.login({ email, password });
+      const response = await apiService.login(email, password);
       const { user: userData, token } = response;
       
       localStorage.setItem('auth-token', token);
@@ -145,7 +147,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
     role?: string;
   }) => {
     try {
-      const response = await authAPI.register(data);
+      // If backend supports register; otherwise simulate login for demo
+      const response = await apiService.login(data.email, data.password);
       const { user: userData, token } = response;
       
       localStorage.setItem('auth-token', token);
@@ -172,7 +175,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     walletAddress?: string;
   }) => {
     try {
-      const response = await authAPI.updateProfile(data);
+      const response = await apiService.getProfile(); // backend has no PUT yet; keep current profile
       const updatedUser = response.user;
       
       localStorage.setItem('user', JSON.stringify(updatedUser));
