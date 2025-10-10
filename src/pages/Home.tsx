@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { NavLink, Navigate } from "react-router-dom";
-import { useAuth } from "@/contexts/AuthContext";
+import { useRoleAuth } from "../contexts/RoleAuthContext";
 import { 
   TrendingUp, 
   Leaf, 
@@ -26,10 +26,10 @@ import {
 } from "lucide-react";
 
 const Home = () => {
-  const { isAuthenticated } = useAuth();
+  const { authState } = useRoleAuth();
   
   // Redirect authenticated users to dashboard
-  if (isAuthenticated) {
+  if (authState.isAuthenticated) {
     return <Navigate to="/dashboard" replace />;
   }
   

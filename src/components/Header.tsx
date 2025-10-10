@@ -1,5 +1,5 @@
 import { NavLink, useLocation, Link } from "react-router-dom";
-import { useAuth } from "@/contexts/AuthContext";
+import { useRoleAuth } from "@/contexts/RoleAuthContext";
 import { Button } from "@/components/ui/button";
 import { 
   DropdownMenu,
@@ -99,7 +99,9 @@ const Header = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [demoRole, setDemoRole] = useState<UserRole | null>(null);
   const location = useLocation();
-  const { isAuthenticated, user, userRole, logout } = useAuth();
+  const { authState, logout } = useRoleAuth();
+  const { isAuthenticated, user } = authState;
+  const userRole = authState.role;
 
   // Use demo role if set, otherwise use actual user role
   const currentRole = demoRole || userRole;

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
+import { useRoleAuth } from '@/contexts/RoleAuthContext';
 import { apiService, type AdminStats, type User, type Project, type Verification } from '@/services/api';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -54,7 +54,8 @@ interface DashboardProject extends Project {
 }
 
 const AdminDashboard = () => {
-  const { user } = useAuth();
+  const { authState } = useRoleAuth();
+  const { user } = authState;
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [projects, setProjects] = useState<DashboardProject[]>([]);
   const [stats, setStats] = useState<AdminStats | null>(null);

@@ -1,0 +1,20 @@
+{
+  "network": "sepolia",
+  "chainId": 11155111,
+  "timestamp": "2025-09-29T07:36:38.488Z",
+  "deployer": "0x179d59195f5771E907463986bCE98B0369e52837",
+  "contracts": {
+    "CarbonCreditToken": {
+      "address": "0x025614e8Dc0b1eb488604D6f6C85982b85f9665B",
+      "name": "BlueCarbonCredit",
+      "symbol": "BCC"
+    },
+    "Marketplace": {
+      "address": "0x4510c03bAb31E60fd99839A6eA3685f83dd3479D"
+    }
+  },
+  "transactionHashes": {
+    "tokenDeployment": "0x5e392e4d23356bf529b2ff13a31ce22f10ec13def0bb8edf535277e4ffe21d73",
+    "marketplaceDeployment": "0xdaae7be7b1e5671c8bc40a2a9f6411c58198f074fd2c26ac9bf08df6dbfc50d9"
+  }
+}

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { useAuth } from '@/contexts/AuthContext'
+import { useRoleAuth } from '@/contexts/RoleAuthContext'
 import { apiService } from '@/services/api'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -32,7 +32,8 @@ const METHODOLOGIES = [
 ]
 
 export function SubmitProjectWizard() {
-  const { user } = useAuth()
+  const { authState } = useRoleAuth();
+  const { user } = authState;
   const navigate = useNavigate()
   const [step, setStep] = useState(0)
   const steps = ['Basic', 'Location', 'Evidence', 'Methodology', 'Review']
@@ -282,9 +283,9 @@ export function SubmitProjectWizard() {
       fd.append('timeline', `${timeline} months`)
       fd.append('methodology', methodology)
       if (user) { 
-        fd.append('submitterId', user.id)
+        fd.append('submitterId', user.email) // Using email as ID since TestAccount doesn't have id
         fd.append('submitterName', user.name)
-        if (user.organization) fd.append('submitterOrganization', user.organization)
+        fd.append('submitterOrganization', user.name) // Using name as organization since TestAccount doesn't have organization
       }
       evidence.forEach(img => fd.append('files', img.file))
 

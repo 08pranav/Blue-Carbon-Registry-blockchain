@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
+import { useRoleAuth } from '@/contexts/RoleAuthContext';
 import { apiService, type MarketplaceListing, type MarketStats, type Transaction } from '@/services/api';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -44,7 +44,8 @@ import { toast } from "sonner";
 import CarbonCreditsTracker from "@/components/CarbonCreditsTracker";
 
 const Marketplace = () => {
-  const { user } = useAuth();
+  const { authState } = useRoleAuth();
+  const { user } = authState;
   const [listings, setListings] = useState<MarketplaceListing[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [marketStats, setMarketStats] = useState<MarketStats | null>(null);

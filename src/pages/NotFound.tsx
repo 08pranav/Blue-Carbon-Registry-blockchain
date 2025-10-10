@@ -2,7 +2,7 @@ import { Link, useLocation } from "react-router-dom";
 import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { useAuth } from "@/contexts/AuthContext";
+import { useRoleAuth } from "@/contexts/RoleAuthContext";
 import { 
   Home, 
   Database, 
@@ -17,7 +17,9 @@ import {
 
 const NotFound = () => {
   const location = useLocation();
-  const { isAuthenticated, userRole } = useAuth();
+  const { authState } = useRoleAuth();
+  const { isAuthenticated } = authState;
+  const userRole = authState.role;
 
   useEffect(() => {
     console.error("404 Error: User attempted to access non-existent route:", location.pathname);

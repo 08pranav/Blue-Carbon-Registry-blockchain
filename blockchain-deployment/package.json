@@ -1,0 +1,26 @@
+{
+  "name": "blue-carbon-blockchain-deployment",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "compile": "hardhat compile",
+    "deploy:sepolia": "hardhat run scripts/deploy-sepolia.js --network sepolia",
+    "deploy:local": "hardhat run scripts/deploy-local.js --network localhost",
+    "verify:sepolia": "hardhat verify --network sepolia",
+    "wallet-info": "node get-wallet-info.js",
+    "check-balance": "node check-balance.js",
+    "node": "hardhat node",
+    "test": "hardhat test",
+    "clean": "hardhat clean"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "@nomicfoundation/hardhat-ethers": "^3.0.6",
+    "hardhat": "^2.22.0",
+    "dotenv": "^16.4.5"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "^5.0.2",
+    "ethers": "^6.13.0"
+  }
+}

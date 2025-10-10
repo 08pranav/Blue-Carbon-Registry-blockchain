@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { useAuth } from '@/contexts/AuthContext';
+import { useRoleAuth } from '@/contexts/RoleAuthContext';
 import { 
   Waves, 
   Shield, 
@@ -10,7 +10,8 @@ import {
 } from 'lucide-react';
 
 const HeroSection = () => {
-  const { isAuthenticated } = useAuth();
+  const { authState } = useRoleAuth();
+  const { isAuthenticated } = authState;
 
   return (
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
