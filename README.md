@@ -4,6 +4,8 @@
 
 NGOs submit coastal restoration projects with photo evidence. Auditors review them and issue ERC-20 carbon credit tokens (**BCC**) on Ethereum. Companies buy those credits with ETH. Every issuance and sale is a public, verifiable on-chain transaction.
 
+**Live demo:** _coming soon: paste your Vercel URL here after deploying (see [Deploy to Vercel](#deploy-to-vercel))_
+
 ![CI](https://github.com/08pranav/blue-carbon-registry-blockchain/actions/workflows/ci.yml/badge.svg)
 ![Solidity](https://img.shields.io/badge/Solidity-0.8.20-363636?logo=solidity)
 ![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black)
@@ -148,8 +150,24 @@ To check the live Sepolia deployment (read-only, no key needed): `node scripts/c
 
 ### Run with Docker
 ```bash
-docker-compose up --build   # frontend on :3000, API on :3001
+docker compose up --build   # frontend on http://localhost:3000 (nginx proxies /api), API on :3001
 ```
+
+### Deploy to Vercel
+The SPA is built by Vite and the API runs as one serverless function ([`api/index.js`](api/index.js)) that serves the same Express app as `backend/`. [`vercel.json`](vercel.json) installs both dependency sets and rewrites `/api/*` and `/uploads/*` to the function and everything else to `index.html`. The app calls same-origin `/api`, so `VITE_API_BASE_URL` stays empty.
+
+```bash
+npm i -g vercel
+vercel login
+vercel            # first run: link/create the project, accept the detected Vite settings
+vercel --prod     # production deployment
+```
+Or import the GitHub repo at vercel.com/new (root directory `./`); no environment variables are required. Optional: `VITE_NGO_WALLET` / `VITE_AUDITOR_WALLET` / `VITE_COMPANY_WALLET` (build-time), `DEMO_NGO_WALLET`, `DEFAULT_PRICE_ETH`. After deploying, check `https://<your-app>.vercel.app/api/health` returns `{"status":"OK",...}` and that reloading `/login` still works.
+
+Limits of this setup, because the backend keeps its data in memory:
+- Data lives in one function instance and is lost on cold starts or when Vercel starts another instance, so projects can disappear between requests. Fine for a short demo, not for real use.
+- Uploaded photos are written to `/tmp`, which instances don't share, and Vercel rejects request bodies over 4.5 MB: use small photos.
+- For a demo that stays up, host `backend/` somewhere persistent (Render, Railway, Fly: it is a plain Node app with a `Dockerfile`), deploy only the SPA to Vercel and set `VITE_API_BASE_URL` to that host's URL.
 
 ---
 
