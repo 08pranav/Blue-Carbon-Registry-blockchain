@@ -42,3 +42,6 @@ blockchain-deployment/artifacts/
 blockchain-deployment/cache/
 blockchain-deployment/hh-local.cjs
 blockchain-deployment/deployments/localhost.json
+demo/.run/
+*.mp4
+*.webm

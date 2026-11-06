@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { RoleAuthProvider, useRoleAuth, TEST_ACCOUNTS } from '@/contexts/RoleAuthContext';
 import { FIXED_WALLETS, getRoleByWallet, validateWalletForRole } from '@/utils/fixedWallets';
@@ -54,6 +54,13 @@ describe('RoleAuthProvider', () => {
 describe('role wallets from env', () => {
   const NGO = '0x1111111111111111111111111111111111111111';
   const COMPANY = '0x2222222222222222222222222222222222222222';
+
+  // Ignore any VITE_*_WALLET values from a local .env / .env.local (for example the one
+  // `npm run deploy:local` writes) so these tests always see the built-in defaults.
+  beforeEach(() => {
+    vi.resetModules();
+    for (const name of ['VITE_NGO_WALLET', 'VITE_AUDITOR_WALLET', 'VITE_COMPANY_WALLET']) vi.stubEnv(name, '');
+  });
 
   afterEach(() => {
     vi.unstubAllEnvs();

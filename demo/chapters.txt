@@ -1,0 +1,17 @@
+0:00 Title card
+0:04 Step 1 – Welcome to the Blue Carbon Registry
+0:14 Step 2 – Choose a role: NGO, Auditor or Company
+0:21 Step 3 – NGO logs in and connects its wallet
+0:29 Step 4 – NGO submits a mangrove restoration project
+0:41 Step 5 – Attach a field photo as evidence
+0:45 Step 6 – Submit: the photo is screened automatically
+0:55 Step 7 – Auditor logs in and connects its wallet
+1:02 Step 8 – Auditor opens the pending project and its evidence report
+1:16 Step 9 – Approve: BCC credits are minted on-chain to the NGO
+1:28 Step 10 – NGO now holds the newly minted BCC
+1:39 Step 11 – NGO approves the Marketplace to sell credits
+1:47 Step 12 – Company logs in and browses the marketplace
+1:56 Step 13 – Company buys 100 credits with ETH
+2:04 Step 14 – Result: the Company now holds 100 BCC
+2:11 Step 15 – Result: the NGO received 0.10 ETH
+2:26 End card: tech stack and repo

@@ -1,4 +1,5 @@
 import React from 'react';
+import { getCurrentNetworkConfig } from '../blockchain-integration/config';
 import { useRoleAuth } from "../contexts/RoleAuthContext";
 import { NavLink } from "react-router-dom";
 
@@ -197,7 +198,7 @@ const SimpleHome = () => {
           <div>✅ Blockchain Integration Active</div>
           <div>✅ Role-Based Authentication</div>
           <div>✅ Real Wallet Transactions</div>
-          <div>✅ Sepolia Testnet Connected</div>
+          <div>✅ {getCurrentNetworkConfig().chainName} Connected</div>
         </div>
       </div>
     </div>
