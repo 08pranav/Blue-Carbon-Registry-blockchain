@@ -166,3 +166,14 @@ test('serves the built frontend with a SPA fallback, without shadowing the API',
   assert.equal((await fetch(base + '/api/health')).status, 200);
   assert.equal((await fetch(base + '/api/does-not-exist')).status, 404);
 });
+
+test('on Vercel, requests that arrive without the /api mount prefix still route', async () => {
+  process.env.VERCEL = '1';
+  try {
+    assert.equal((await fetch(base + '/health')).status, 200);        // prefix stripped by the platform
+    assert.equal((await fetch(base + '/api/health')).status, 200);    // prefix kept
+    assert.equal((await fetch(base + '/marketplace/listings')).status, 200);
+  } finally {
+    delete process.env.VERCEL;
+  }
+});
