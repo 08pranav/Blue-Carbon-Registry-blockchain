@@ -4,6 +4,8 @@ This guide walks you through the whole flow (NGO submits a project, Auditor appr
 
 **How this guide was checked.** I ran the full flow in a real browser against the running app, with a stand-in wallet on a local Hardhat chain, and confirmed every route, button label and command below. I also ran the app's wallet code against a local chain with `npm run test:e2e-local`. I could not run the real MetaMask pop-ups or Sepolia for you, so the MetaMask screens are described from how the app calls them; wording in MetaMask itself changes between versions.
 
+The app is also deployed at https://blue-carbon-registry-blockchain.vercel.app, but its backend keeps data in memory and can lose it between requests, so for this test script run it locally as described in section 4.
+
 Contents: [1. Setup](#1-setup) · [2. Accounts for each role](#2-accounts-for-each-role) · [3. Show BCC in MetaMask](#3-show-bcc-in-metamask) · [4. Run the app](#4-run-the-app-locally) · [5. Test script](#5-end-to-end-test-script) · [6. Etherscan](#6-verify-on-etherscan) · [7. Troubleshooting](#7-troubleshooting) · [8. No-faucet local option](#8-local-alternative-without-faucets) · [9. Recording a demo](#9-checklist-for-recording-a-demo-video-or-gif)
 
 ---
