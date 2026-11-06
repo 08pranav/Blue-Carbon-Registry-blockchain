@@ -6,7 +6,7 @@ NGOs submit coastal restoration projects with photo evidence. Auditors review th
 
 **Docker image:** [`08pranav/blue-carbon-registry`](https://hub.docker.com/r/08pranav/blue-carbon-registry) on Docker Hub: `docker run --rm -p 3000:3001 08pranav/blue-carbon-registry`, then open http://localhost:3000
 
-**Live demo:** _coming soon: paste your Vercel URL here after deploying (see [Deploy to Vercel](#deploy-to-vercel))_
+**Live demo:** https://blue-carbon-registry-blockchain.vercel.app (Vercel; the backend keeps its data in memory, so submitted projects can disappear between requests, see [Deploy to Vercel](#deploy-to-vercel))
 
 ![CI](https://github.com/08pranav/blue-carbon-registry-blockchain/actions/workflows/ci.yml/badge.svg)
 ![Solidity](https://img.shields.io/badge/Solidity-0.8.20-363636?logo=solidity)
