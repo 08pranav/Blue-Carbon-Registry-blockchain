@@ -12,6 +12,10 @@ NGOs submit coastal restoration projects with photo evidence. Auditors review th
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white)
 ![Network](https://img.shields.io/badge/Network-Sepolia-6B7280?logo=ethereum)
 
+![Demo: NGO submits, auditor mints BCC, company buys](demo/demo-preview.gif)
+
+_The full NGO → Auditor → Company flow on a local test chain, recorded with a stand-in wallet (see [Recording the demo](#recording-the-demo))._
+
 ![Home](docs/screenshots/home.png)
 
 ---
@@ -153,6 +157,21 @@ Each role must connect a specific MetaMask account. The defaults live in [`src/u
 The Auditor wallet must be the account that deployed the Marketplace, because only the Marketplace admin can call `verifyNGO`. The default Company wallet equals the Auditor wallet; set `VITE_COMPANY_WALLET` to give the Company its own account.
 
 To check the live Sepolia deployment (read-only, no key needed): `node scripts/check-sepolia.mjs`.
+
+### Recording the demo
+`demo/` contains the scripts that produced the video above. They run the real app on a fresh local Hardhat chain, with a stand-in `window.ethereum` that forwards to the node instead of MetaMask, so every transaction is a real transaction with a real hash. Native `alert()` dialogs, which video capture cannot see, are drawn as in-page boxes showing the app's actual message.
+
+```bash
+npm install --no-save playwright && npx playwright install chromium   # one-time
+demo/stack.sh start                    # new chain + deploy + empty backend + frontend (also resets state)
+node demo/discover.cjs                 # optional: dump the page elements the script relies on (demo/field-map.md)
+node demo/record-demo.cjs --rehearse   # check every selector and the on-chain steps, fast, no video
+demo/stack.sh start                    # reset again (a run creates state)
+node demo/record-demo.cjs              # record demo/blue-carbon-demo.webm
+node demo/edit-videos.cjs              # build the mp4 (16:9, square, short), the GIF and chapters.txt with ffmpeg
+demo/stack.sh stop
+```
+The video files are git-ignored; `demo/demo-preview.gif` and `demo/chapters.txt` are committed.
 
 ### Run with Docker
 ```bash
