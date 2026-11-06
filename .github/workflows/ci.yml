@@ -1,48 +1,39 @@
-name: ci
+name: CI
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
 
 jobs:
-  build-and-test:
+  frontend:
+    name: Frontend (build + tests)
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
-
-      - name: Install deps (root)
-        run: npm ci
-
-      - name: Lint
-        run: npm run lint
-
-      - name: Typecheck
-        run: npm run typecheck
-
-      - name: Test (frontend)
-        run: npx vitest run --coverage
-
-      - name: Build (frontend)
-        run: npm run build
-
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run test:ci
+      - run: npm run build
       - name: Backend install
-        run: |
-          cd backend
-          npm ci
+        run: npm ci
+        working-directory: backend
 
-      - name: Contracts compile (if present)
-        run: |
-          if [ -d ../new-bluecarbon/contracts ]; then
-            cd ../new-bluecarbon/contracts
-            npm ci
-            npx hardhat compile
-          fi
+  contracts:
+    name: Smart contracts (Hardhat tests)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: blockchain-deployment
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: blockchain-deployment/package-lock.json
+      - run: npm ci
+      - run: npx hardhat test

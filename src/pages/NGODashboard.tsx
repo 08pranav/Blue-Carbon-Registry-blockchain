@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs'
 import { PlusCircle, FileText, Coins, TrendingUp, Clock, CheckCircle, XCircle, IndianRupee } from 'lucide-react';
 import { DemoBlockchainService } from '../utils/DemoBlockchainService.js';
 import DemoModeBanner from '../components/DemoModeBanner';
+import { tokenTransferService } from '../utils/TokenTransferService';
 
 interface Project {
   id: string;
@@ -185,6 +186,27 @@ export default function NGODashboard() {
       }
     } catch (error: any) {
       alert(`❌ Registration failed: ${error.message}`);
+    }
+  };
+
+  const [approveAmount, setApproveAmount] = useState('');
+  const [isApproving, setIsApproving] = useState(false);
+
+  // Let the marketplace contract sell this NGO's BCC to companies (ERC-20 approve)
+  const approveForMarketplace = async () => {
+    const amount = parseFloat(approveAmount);
+    if (!amount || amount <= 0) {
+      alert('Enter how many BCC credits the marketplace may sell');
+      return;
+    }
+    setIsApproving(true);
+    const result = await tokenTransferService.approveMarketplace(amount);
+    setIsApproving(false);
+    if (result.success) {
+      alert(`✅ Marketplace approved to sell ${amount} BCC.\n\n🔗 https://sepolia.etherscan.io/tx/${result.txHash}`);
+      setApproveAmount('');
+    } else {
+      alert(`❌ Approval failed: ${result.error}`);
     }
   };
 
@@ -489,6 +511,25 @@ export default function NGODashboard() {
                     </Button>
                   </div>
                 )}
+
+                <div className="border rounded-lg p-4">
+                  <h4 className="font-semibold mb-1">Approve Credits for On-Chain Sale</h4>
+                  <p className="text-sm text-gray-600 mb-4">
+                    Lets the Marketplace contract transfer your BCC tokens to a buyer when they pay. Required before companies can purchase.
+                  </p>
+                  <div className="flex gap-2">
+                    <Input
+                      type="number"
+                      min="0"
+                      value={approveAmount}
+                      onChange={(e) => setApproveAmount(e.target.value)}
+                      placeholder="BCC amount to approve"
+                    />
+                    <Button onClick={approveForMarketplace} disabled={isApproving}>
+                      {isApproving ? 'Approving…' : 'Approve'}
+                    </Button>
+                  </div>
+                </div>
 
                 {allocatedCredits === 0 && (
                   <div className="text-center py-8 text-gray-500">
