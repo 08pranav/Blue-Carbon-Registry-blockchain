@@ -337,7 +337,7 @@ Copy-ready:
 - Repository: https://github.com/08pranav/Blue-Carbon-Registry-blockchain
 - Pull requests: [#1](https://github.com/08pranav/Blue-Carbon-Registry-blockchain/pull/1) (closed, superseded), [#2](https://github.com/08pranav/Blue-Carbon-Registry-blockchain/pull/2) (first working version, merged), [#3](https://github.com/08pranav/Blue-Carbon-Registry-blockchain/pull/3) (ownership design, real data, cleanup, docs)
 - Contracts on Etherscan: [CarbonCreditToken](https://sepolia.etherscan.io/address/0x025614e8Dc0b1eb488604D6f6C85982b85f9665B), [Marketplace](https://sepolia.etherscan.io/address/0x4510c03bAb31E60fd99839A6eA3685f83dd3479D)
-- Live demo: **placeholder, add your Vercel URL here after deploying** (see the README, "Deploy to Vercel")
+- Live demo: https://blue-carbon-registry-blockchain.vercel.app (the in-memory backend means submitted projects can disappear between requests on Vercel)
 - How to test with MetaMask: [`docs/TESTING_WITH_METAMASK.md`](TESTING_WITH_METAMASK.md)
 - Screenshots in `docs/screenshots/` (note: these were taken before the backend-driven dashboards, so retake the NGO, Auditor and Company shots for a post):
 
