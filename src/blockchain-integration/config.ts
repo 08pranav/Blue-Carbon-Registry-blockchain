@@ -107,3 +107,9 @@ export const getCurrentNetworkConfig = () => {
 export const getCurrentContractAddresses = () => {
   return CONTRACT_ADDRESSES[CURRENT_NETWORK as keyof typeof CONTRACT_ADDRESSES];
 };
+
+/** Block-explorer link for a transaction on the current network ('' on a local chain). */
+export const getTxUrl = (txHash: string): string => {
+  const base = getCurrentNetworkConfig().blockExplorerUrls[0];
+  return base ? `${base}/tx/${txHash}` : '';
+};

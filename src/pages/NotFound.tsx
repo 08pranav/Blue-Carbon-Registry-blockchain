@@ -3,13 +3,10 @@ import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useRoleAuth } from "@/contexts/RoleAuthContext";
-import { 
-  Home, 
-  Database, 
-  FolderOpen, 
-  Upload, 
-  ShoppingCart,
-  Map,
+import {
+  Home,
+  LayoutDashboard,
+  LogIn,
   ArrowLeft,
   Search,
   Waves
@@ -26,25 +23,15 @@ const NotFound = () => {
   }, [location.pathname]);
 
   const getQuickLinks = () => {
+    // Only routes that exist in App.tsx
     const links = [
       { name: "Home", href: "/", icon: Home, description: "Return to the homepage" },
-      { name: "Registry", href: "/registry", icon: Database, description: "Browse verified projects" },
-      { name: "Map", href: "/map", icon: Map, description: "View project locations" },
     ];
 
     if (isAuthenticated) {
-      links.push(
-        { name: "Dashboard", href: "/dashboard", icon: Home, description: "Your personal dashboard" },
-        { name: "Projects", href: "/projects", icon: FolderOpen, description: "Manage your projects" }
-      );
-
-      if (userRole === 'NGO' || userRole === 'ADMIN') {
-        links.push({ name: "Submit Project", href: "/submit", icon: Upload, description: "Submit a new project" });
-      }
-
-      if (userRole === 'BUYER' || userRole === 'ADMIN') {
-        links.push({ name: "Marketplace", href: "/marketplace", icon: ShoppingCart, description: "Browse carbon credits" });
-      }
+      links.push({ name: "My dashboard", href: "/dashboard", icon: LayoutDashboard, description: `Go to the ${userRole ?? ''} dashboard` });
+    } else {
+      links.push({ name: "Log in", href: "/login", icon: LogIn, description: "Choose a demo role: NGO, Auditor or Company" });
     }
 
     return links;
@@ -107,7 +94,7 @@ const NotFound = () => {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-3 md:grid-cols-2">
               {quickLinks.map((link) => {
                 const Icon = link.icon;
                 return (

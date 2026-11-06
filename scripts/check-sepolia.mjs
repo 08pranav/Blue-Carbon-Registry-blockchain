@@ -15,9 +15,9 @@ const sepolia = configSrc.match(/SEPOLIA:\s*\{\s*CARBON_CREDIT_TOKEN:\s*"(0x[0-9
 if (!sepolia) throw new Error("Could not read Sepolia addresses from config.ts");
 const [TOKEN, MARKET] = [sepolia[1], sepolia[2]];
 
-const walletsSrc = readFileSync(new URL("../src/utils/fixedWallets.js", import.meta.url), "utf8");
+const walletsSrc = readFileSync(new URL("../src/utils/fixedWallets.ts", import.meta.url), "utf8");
 const wallets = {};
-// Defaults from fixedWallets.js, overridable with the same VITE_*_WALLET env vars the app uses.
+// Defaults from fixedWallets.ts, overridable with the same VITE_*_WALLET env vars the app uses.
 for (const m of walletsSrc.matchAll(/(NGO|COMPANY|AUDITOR):\s*'(0x[0-9a-fA-F]{40})'/g)) wallets[m[1]] = process.env[`VITE_${m[1]}_WALLET`] || m[2];
 
 async function connect() {
@@ -66,7 +66,7 @@ console.log(`nextTradeId():       ${await market.nextTradeId()}  (${(await marke
 console.log(`nextNgoId():         ${await market.nextNgoId()}`);
 console.log(`nextCompanyId():     ${await market.nextCompanyId()}`);
 
-console.log("\nDemo wallets (src/utils/fixedWallets.js defaults):");
+console.log("\nDemo wallets (src/utils/fixedWallets.ts defaults):");
 for (const [role, addr] of Object.entries(wallets)) {
   const [bcc, eth] = await Promise.all([token.balanceOf(addr), provider.getBalance(addr)]);
   console.log(`  ${role.padEnd(8)} ${addr}  BCC=${formatUnits(bcc, decimals)}  ETH=${formatEther(eth)}`);

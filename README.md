@@ -132,7 +132,7 @@ Open http://localhost:8080 and choose **Try NGO / Auditor / Company Demo**. The 
 4. Every step comes with a Sepolia Etherscan link.
 
 ### Demo wallets
-Each role must connect a specific MetaMask account. The defaults live in [`src/utils/fixedWallets.js`](src/utils/fixedWallets.js) and can be overridden in `.env` (see [`.env.example`](.env.example)):
+Each role must connect a specific MetaMask account. The defaults live in [`src/utils/fixedWallets.ts`](src/utils/fixedWallets.ts) and can be overridden in `.env` (see [`.env.example`](.env.example)):
 
 | Role | Env var | Default |
 |---|---|---|

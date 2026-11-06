@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Navigate } from 'react-router-dom';
-import { useRoleAuth, TEST_ACCOUNTS } from '../contexts/RoleAuthContext';
+import { useRoleAuth, TEST_ACCOUNTS, type TestAccount } from '../contexts/RoleAuthContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
@@ -15,7 +15,7 @@ const Login = () => {
     return <Navigate to="/dashboard" replace />;
   }
 
-  const handleLogin = (account: any) => {
+  const handleLogin = (account: TestAccount) => {
     login(account);
   };
 

@@ -1,6 +1,7 @@
 import { ethers } from 'ethers';
-import { BLOCKCHAIN_CONFIG } from '../blockchain-integration/config';
-import { FIXED_WALLETS } from './fixedWallets.js';
+import { BLOCKCHAIN_CONFIG, getTxUrl } from '../blockchain-integration/config';
+import { FIXED_WALLETS } from './fixedWallets';
+import { errorCode, errorMessage, isUserRejection } from '@/lib/errors';
 
 export class TokenTransferService {
   private provider: ethers.BrowserProvider | null = null;
@@ -43,7 +44,7 @@ export class TokenTransferService {
       console.log(`✅ Contract verified: ${name} (${symbol}) at ${BLOCKCHAIN_CONFIG.TOKEN_ADDRESS}`);
     } catch (error) {
       console.error('❌ Contract verification failed:', error);
-      throw new Error(`Contract not accessible: ${error.message}`);
+      throw new Error(`Contract not accessible: ${errorMessage(error)}`);
     }
   }
 
@@ -54,9 +55,9 @@ export class TokenTransferService {
         method: 'wallet_switchEthereumChain',
         params: [{ chainId: BLOCKCHAIN_CONFIG.NETWORK_CONFIG.chainIdHex }],
       });
-    } catch (switchError: any) {
+    } catch (switchError) {
       // If Sepolia is not added to MetaMask, add it
-      if (switchError.code === 4902) {
+      if (errorCode(switchError) === 4902) {
         try {
           await window.ethereum.request({
             method: 'wallet_addEthereumChain',
@@ -74,29 +75,6 @@ export class TokenTransferService {
       } else {
         throw new Error('Failed to switch to Sepolia network');
       }
-    }
-  }
-
-  async verifyContract() {
-    try {
-      const code = await this.provider!.getCode(BLOCKCHAIN_CONFIG.TOKEN_ADDRESS);
-      if (code === '0x') {
-        throw new Error(`❌ Contract not deployed at address: ${BLOCKCHAIN_CONFIG.TOKEN_ADDRESS}\n\nThis usually means:\n• Contract hasn't been deployed to Sepolia testnet\n• Wrong contract address in config\n• Not connected to the right network`);
-      }
-      
-      // Try to call a view function to verify contract works
-      const name = await this.tokenContract!.name();
-      console.log(`✅ Contract verified: ${name} at ${BLOCKCHAIN_CONFIG.TOKEN_ADDRESS}`);
-      
-      // Minting is done through Marketplace.verifyNGO(); the Marketplace must own the token.
-      const owner = await this.tokenContract!.owner();
-      if (owner.toLowerCase() !== BLOCKCHAIN_CONFIG.MARKETPLACE_ADDRESS.toLowerCase()) {
-        console.warn(`Token owner is ${owner}, not the Marketplace: issuing credits will fail.`);
-      }
-
-    } catch (error: any) {
-      console.error('Contract verification failed:', error);
-      throw new Error(`Contract verification failed: ${error.message}`);
     }
   }
 
@@ -162,19 +140,19 @@ export class TokenTransferService {
         ngoWallet: ngoAddress,
         auditorWallet: auditorAddress
       };
-    } catch (error: any) {
+    } catch (error) {
       console.error('Issuing credits failed:', error);
 
-      let errorMessage = error.shortMessage || error.message || 'Unknown error';
-      if (errorMessage.includes('user rejected')) {
-        errorMessage = 'Transaction was rejected by user';
-      } else if (errorMessage.includes('insufficient funds')) {
-        errorMessage = 'Insufficient ETH for gas fees - need Sepolia testnet ETH';
+      let userMessage = errorMessage(error) || 'Unknown error';
+      if (userMessage.includes('user rejected')) {
+        userMessage = 'Transaction was rejected by user';
+      } else if (userMessage.includes('insufficient funds')) {
+        userMessage = 'Insufficient ETH for gas fees - need Sepolia testnet ETH';
       }
 
       return {
         success: false,
-        error: errorMessage,
+        error: userMessage,
         ngoWallet: ngoAddress,
         auditorWallet: auditorAddress
       };
@@ -233,10 +211,10 @@ export class TokenTransferService {
         estimatedGas: "0.001"
       };
       
-    } catch (error: any) {
+    } catch (error) {
       return {
         success: false,
-        error: `Pre-flight check failed: ${error.message}`
+        error: `Pre-flight check failed: ${errorMessage(error)}`
       };
     }
   }
@@ -303,7 +281,7 @@ export class TokenTransferService {
         throw new Error(`Insufficient balance. Need ${ethers.formatEther(requiredAmount)} ETH, have ${ethers.formatEther(currentBalance)} ETH`);
       }
       
-      // Execute trade through marketplace (pays NGO in ETH + mints BCC to Company)
+      // Execute trade through marketplace (pays the NGO in ETH, moves BCC from NGO to Company)
       console.log(`🏪 REAL TRANSACTION: Executing trade through marketplace contract`);
       console.log(`📦 Credits: ${creditAmount} BCC`);
       console.log(`💰 Payment: ${paymentAmountETH} ETH`);
@@ -352,7 +330,7 @@ export class TokenTransferService {
           paymentTx: tradeTx.hash,
           companyWallet: companyAddress, 
           ngoWallet: ngoAddress,
-          message: `✅ MARKETPLACE TRADE COMPLETE!\n\n💰 ETH Payment: ${paymentAmountETH} ETH sent to NGO\n🪙 BCC Tokens: ${creditAmount} BCC minted to Company\n\n🔗 Trade TX: ${tradeTx.hash}\n🔍 View on Etherscan: https://sepolia.etherscan.io/tx/${tradeTx.hash}`,
+          message: `✅ MARKETPLACE TRADE COMPLETE!\n\n💰 ETH Payment: ${paymentAmountETH} ETH sent to NGO\n🪙 BCC Tokens: ${creditAmount} BCC transferred from the NGO to the Company\n\n🔗 Trade TX: ${tradeTx.hash}\n🔍 View on the block explorer: ${getTxUrl(tradeTx.hash) || '(local chain)'}`,
           balances: {
             companyETH: ethers.formatEther(companyETHBalance),
             companyBCC: ethers.formatEther(companyTokenBalance),
@@ -360,32 +338,32 @@ export class TokenTransferService {
           }
         };
         
-      } catch (marketplaceError: any) {
+      } catch (marketplaceError) {
         console.error('❌ Marketplace trade failed:', marketplaceError);
         throw marketplaceError;
       }
 
-    } catch (error: any) {
+    } catch (error) {
       console.error('Token transfer failed:', error);
       
       // Parse common error messages
-      let errorMessage = error.message || 'Unknown error';
+      let userMessage = errorMessage(error) || 'Unknown error';
       
-      if (errorMessage.includes('execution reverted')) {
-        if (errorMessage.includes('estimateGas')) {
-          errorMessage = `🚫 Transaction Failed: Gas estimation failed\n\nThis usually means:\n• Insufficient ETH balance\n• Contract not properly deployed\n• Invalid transaction parameters\n\n➡️ Please check your wallet balance and try again`;
+      if (userMessage.includes('execution reverted')) {
+        if (userMessage.includes('estimateGas')) {
+          userMessage = `🚫 Transaction Failed: Gas estimation failed\n\nThis usually means:\n• Insufficient ETH balance\n• Contract not properly deployed\n• Invalid transaction parameters\n\n➡️ Please check your wallet balance and try again`;
         } else {
-          errorMessage = `🚫 Transaction Reverted\n\nPossible causes:\n• Insufficient balance\n• Contract restrictions\n• Network congestion\n\n➡️ Please try again`;
+          userMessage = `🚫 Transaction Reverted\n\nPossible causes:\n• Insufficient balance\n• Contract restrictions\n• Network congestion\n\n➡️ Please try again`;
         }
-      } else if (errorMessage.includes('user rejected')) {
-        errorMessage = 'Transaction was rejected by user';
-      } else if (errorMessage.includes('insufficient funds')) {
-        errorMessage = 'Insufficient ETH for gas fees - need Sepolia testnet ETH';
+      } else if (userMessage.includes('user rejected')) {
+        userMessage = 'Transaction was rejected by user';
+      } else if (userMessage.includes('insufficient funds')) {
+        userMessage = 'Insufficient ETH for gas fees - need Sepolia testnet ETH';
       }
 
       return {
         success: false,
-        error: errorMessage,
+        error: userMessage,
         companyWallet: companyAddress,
         ngoWallet: ngoAddress
       };
@@ -403,8 +381,8 @@ export class TokenTransferService {
       const tx = await this.tokenContract!.approve(BLOCKCHAIN_CONFIG.MARKETPLACE_ADDRESS, amount);
       await tx.wait();
       return { success: true, txHash: tx.hash };
-    } catch (error: any) {
-      const msg = error?.message?.includes('user rejected') ? 'Transaction was rejected by user' : (error?.message || 'Approval failed');
+    } catch (error) {
+      const msg = isUserRejection(error) ? 'Transaction was rejected by user' : (errorMessage(error) || 'Approval failed');
       return { success: false, error: msg };
     }
   }

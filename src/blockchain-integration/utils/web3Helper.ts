@@ -1,17 +1,22 @@
-import { BrowserProvider, Contract, parseEther, formatEther } from 'ethers';
+import { BrowserProvider, Contract, JsonRpcSigner, parseEther, formatEther } from 'ethers';
+import { errorCode, errorMessage } from '@/lib/errors';
 import { BLOCKCHAIN_CONFIG, getCurrentNetworkConfig, getCurrentContractAddresses } from '../config';
 import CarbonCreditTokenABI from '../abi/CarbonCreditToken.json';
 import MarketplaceABI from '../abi/Marketplace.json';
 
-declare global {
-  interface Window {
-    ethereum?: any;
-  }
+export interface NgoRecord {
+  ngoId: string;
+  wallet: string;
+  name: string;
+  status: number;
+  documentsHash: string;
+  creditsAllocated: string;
+  dateVerified: string;
 }
 
 export class Web3Helper {
   private provider: BrowserProvider | null = null;
-  private signer: any = null;
+  private signer: JsonRpcSigner | null = null;
   private tokenContract: Contract | null = null;
   private marketplaceContract: Contract | null = null;
 
@@ -33,9 +38,9 @@ export class Web3Helper {
       }
 
       // Request account access
-      const accounts = await window.ethereum.request({ 
-        method: 'eth_requestAccounts' 
-      });
+      const accounts = (await window.ethereum.request({
+        method: 'eth_requestAccounts'
+      })) as string[];
 
       if (accounts.length === 0) {
         return { success: false, error: 'No accounts found' };
@@ -52,9 +57,9 @@ export class Web3Helper {
       await this.initializeContracts();
 
       return { success: true, address: accounts[0] };
-    } catch (error: any) {
+    } catch (error) {
       console.error('Wallet connection error:', error);
-      return { success: false, error: error.message };
+      return { success: false, error: errorMessage(error) };
     }
   }
 
@@ -62,30 +67,27 @@ export class Web3Helper {
   async switchToCorrectNetwork(): Promise<void> {
     const networkConfig = getCurrentNetworkConfig();
     
+    if (!window.ethereum) throw new Error('MetaMask not installed');
     try {
       await window.ethereum.request({
         method: 'wallet_switchEthereumChain',
         params: [{ chainId: networkConfig.chainIdHex }],
       });
-    } catch (switchError: any) {
+    } catch (switchError) {
       // This error code indicates that the chain has not been added to MetaMask
-      if (switchError.code === 4902) {
-        try {
-          await window.ethereum.request({
-            method: 'wallet_addEthereumChain',
-            params: [
-              {
-                chainId: networkConfig.chainIdHex,
-                chainName: networkConfig.chainName,
-                rpcUrls: networkConfig.rpcUrls,
-                blockExplorerUrls: networkConfig.blockExplorerUrls,
-                nativeCurrency: networkConfig.nativeCurrency,
-              },
-            ],
-          });
-        } catch (addError) {
-          throw addError;
-        }
+      if (errorCode(switchError) === 4902) {
+        await window.ethereum.request({
+          method: 'wallet_addEthereumChain',
+          params: [
+            {
+              chainId: networkConfig.chainIdHex,
+              chainName: networkConfig.chainName,
+              rpcUrls: networkConfig.rpcUrls,
+              blockExplorerUrls: networkConfig.blockExplorerUrls,
+              nativeCurrency: networkConfig.nativeCurrency,
+            },
+          ],
+        });
       } else {
         throw switchError;
       }
@@ -169,14 +171,14 @@ export class Web3Helper {
       await tx.wait();
 
       return { success: true, txHash: tx.hash };
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error registering NGO:', error);
-      return { success: false, error: error.message };
+      return { success: false, error: errorMessage(error) };
     }
   }
 
   // Get NGO by wallet address
-  async getNGOByWallet(walletAddress: string): Promise<any> {
+  async getNGOByWallet(walletAddress: string): Promise<NgoRecord | null> {
     try {
       if (!this.marketplaceContract) {
         throw new Error('Marketplace contract not initialized');
@@ -217,9 +219,9 @@ export class Web3Helper {
       await tx.wait();
 
       return { success: true, txHash: tx.hash };
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error verifying NGO:', error);
-      return { success: false, error: error.message };
+      return { success: false, error: errorMessage(error) };
     }
   }
 
@@ -235,9 +237,9 @@ export class Web3Helper {
       await tx.wait();
 
       return { success: true, txHash: tx.hash };
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error registering company:', error);
-      return { success: false, error: error.message };
+      return { success: false, error: errorMessage(error) };
     }
   }
 
@@ -249,26 +251,28 @@ export class Web3Helper {
     pdfHash: string
   ): Promise<{ success: boolean; txHash?: string; error?: string }> {
     try {
-      if (!this.marketplaceContract) {
-        throw new Error('Marketplace contract not initialized');
+      if (!this.marketplaceContract || !this.signer) {
+        throw new Error('Contracts not initialized');
       }
 
+      const buyerAddress = await this.signer.getAddress();
       const amountWei = parseEther(amount);
       const priceWei = parseEther(price);
 
+      // executeTrade(seller, buyer, amount, pdfHash) payable: the ETH goes to the seller
       const tx = await this.marketplaceContract.executeTrade(
         sellerAddress,
+        buyerAddress,
         amountWei,
-        priceWei,
         pdfHash,
         { value: priceWei }
       );
       await tx.wait();
 
       return { success: true, txHash: tx.hash };
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error executing trade:', error);
-      return { success: false, error: error.message };
+      return { success: false, error: errorMessage(error) };
     }
   }
 

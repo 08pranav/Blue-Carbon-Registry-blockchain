@@ -10,8 +10,7 @@ import { ExternalLink, CheckCircle, AlertCircle, Loader, Video, Building2, Shopp
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { tokenTransferService } from '../utils/TokenTransferService';
 import { FIXED_WALLETS } from '../utils/fixedWallets';
-import { ethers } from 'ethers';
-import { BLOCKCHAIN_CONFIG } from '../blockchain-integration/config';
+import { errorMessage } from '@/lib/errors';
 
 interface CarbonListing {
   id: string;
@@ -71,120 +70,7 @@ export default function CompanyDashboard() {
   useEffect(() => {
     setListings(sampleListings);
     loadWalletBalances();
-    // Make debug functions available globally
-    setupDebugFunctions();
   }, []);
-
-  // Setup global debug functions
-  const setupDebugFunctions = () => {
-    (window as any).debugBlockchain = async () => {
-      console.log('🔍 === BLOCKCHAIN DEBUG STARTED ===');
-      
-      try {
-        // Setup provider and contract
-        const provider = new ethers.JsonRpcProvider(BLOCKCHAIN_CONFIG.NETWORK_CONFIG.rpcUrls[0]);
-        const tokenContract = new ethers.Contract(
-          BLOCKCHAIN_CONFIG.TOKEN_ADDRESS,
-          BLOCKCHAIN_CONFIG.TOKEN_ABI,
-          provider
-        );
-        
-        console.log('📋 Configuration:');
-        console.log('Contract Address:', BLOCKCHAIN_CONFIG.TOKEN_ADDRESS);
-        console.log('Network:', BLOCKCHAIN_CONFIG.NETWORK_CONFIG.chainName);
-        console.log('Company Wallet:', FIXED_WALLETS.COMPANY);
-        console.log('NGO Wallet:', FIXED_WALLETS.NGO);
-        
-        console.log('\n👑 Checking Contract Ownership...');
-        const contractOwner = await tokenContract.owner();
-        const isOwner = contractOwner.toLowerCase() === FIXED_WALLETS.COMPANY.toLowerCase();
-        
-        console.log('Contract Owner:', contractOwner);
-        console.log('Company Wallet:', FIXED_WALLETS.COMPANY);
-        console.log('Is Company Owner?', isOwner);
-        
-        console.log('\n💰 Checking Balances...');
-        const companyTokenBalance = await tokenContract.balanceOf(FIXED_WALLETS.COMPANY);
-        const companyETHBalance = await provider.getBalance(FIXED_WALLETS.COMPANY);
-        
-        console.log('Company BCC Balance:', ethers.formatEther(companyTokenBalance));
-        console.log('Company ETH Balance:', ethers.formatEther(companyETHBalance));
-        
-        console.log('\n📜 Contract Info...');
-        const tokenName = await tokenContract.name();
-        const tokenSymbol = await tokenContract.symbol();
-        console.log('Token Name:', tokenName);
-        console.log('Token Symbol:', tokenSymbol);
-        
-        console.log('\n🧪 Testing Mint Function...');
-        try {
-          // Try to estimate gas for minting (this will fail if permissions are wrong)
-          const testAmount = ethers.parseEther('1');
-          const gasEstimate = await tokenContract.mint.estimateGas(FIXED_WALLETS.COMPANY, testAmount);
-          console.log('✅ Mint Gas Estimate:', gasEstimate.toString());
-          console.log('✅ Minting permissions: WORKING');
-        } catch (mintError: any) {
-          console.log('❌ Mint Test Failed:', mintError.message);
-          if (mintError.message.includes('Ownable: caller is not the owner')) {
-            console.log('🚫 Issue: Company wallet is not the contract owner');
-          }
-        }
-        
-        console.log('\n✅ === DEBUG COMPLETE ===');
-        
-        return {
-          contractAddress: BLOCKCHAIN_CONFIG.TOKEN_ADDRESS,
-          contractOwner,
-          companyWallet: FIXED_WALLETS.COMPANY,
-          isOwner,
-          companyBCCBalance: ethers.formatEther(companyTokenBalance),
-          companyETHBalance: ethers.formatEther(companyETHBalance),
-          tokenName,
-          tokenSymbol
-        };
-        
-      } catch (error: any) {
-        console.error('❌ Debug failed:', error);
-        return { error: error.message };
-      }
-    };
-
-    (window as any).checkBalances = async () => {
-      console.log('💰 Checking wallet balances...');
-      
-      try {
-        const provider = new ethers.JsonRpcProvider(BLOCKCHAIN_CONFIG.NETWORK_CONFIG.rpcUrls[0]);
-        const tokenContract = new ethers.Contract(
-          BLOCKCHAIN_CONFIG.TOKEN_ADDRESS,
-          BLOCKCHAIN_CONFIG.TOKEN_ABI,
-          provider
-        );
-        
-        const companyTokenBalance = await tokenContract.balanceOf(FIXED_WALLETS.COMPANY);
-        const companyETHBalance = await provider.getBalance(FIXED_WALLETS.COMPANY);
-        const ngoETHBalance = await provider.getBalance(FIXED_WALLETS.NGO);
-        
-        console.log('📊 Current Balances:');
-        console.log('Company BCC:', ethers.formatEther(companyTokenBalance));
-        console.log('Company ETH:', ethers.formatEther(companyETHBalance));
-        console.log('NGO ETH:', ethers.formatEther(ngoETHBalance));
-        
-        return {
-          companyBCC: ethers.formatEther(companyTokenBalance),
-          companyETH: ethers.formatEther(companyETHBalance),
-          ngoETH: ethers.formatEther(ngoETHBalance)
-        };
-        
-      } catch (error: any) {
-        console.error('❌ Balance check failed:', error);
-        return { error: error.message };
-      }
-    };
-
-    console.log('🎯 Debug tools loaded!');
-    console.log('Run: window.debugBlockchain() - Full blockchain debug');
-    console.log('Run: window.checkBalances() - Quick balance check');
-  };
 
   const loadWalletBalances = async () => {
     try {
@@ -212,8 +98,8 @@ export default function CompanyDashboard() {
       try {
         await WalletHelper.ensureCorrectWallet(FIXED_WALLETS.COMPANY, 'Company');
         await WalletHelper.ensureSepoliaNetwork();
-      } catch (error: any) {
-        alert(`❌ Wallet setup failed: ${error.message}`);
+      } catch (error) {
+        alert(`❌ Wallet setup failed: ${errorMessage(error)}`);
         return;
       }
 
@@ -243,9 +129,9 @@ export default function CompanyDashboard() {
         alert(`❌ Purchase failed: ${result.error}`);
       }
 
-    } catch (error: any) {
+    } catch (error) {
       console.error('Purchase error:', error);
-      alert(`❌ Purchase failed: ${error.message}`);
+      alert(`❌ Purchase failed: ${errorMessage(error)}`);
     } finally {
       setPurchasing(null);
     }

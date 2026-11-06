@@ -11,6 +11,8 @@ import { PlusCircle, FileText, Coins, TrendingUp, Clock, CheckCircle, XCircle, I
 import { DemoBlockchainService } from '../utils/DemoBlockchainService.js';
 import DemoModeBanner from '../components/DemoModeBanner';
 import { tokenTransferService } from '../utils/TokenTransferService';
+import { getTxUrl } from '../blockchain-integration/config';
+import { errorMessage } from '@/lib/errors';
 
 interface Project {
   id: string;
@@ -51,6 +53,7 @@ export default function NGODashboard() {
   // Load data on component mount
   useEffect(() => {
     loadNGOData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- load once on mount
   }, []);
 
   const loadNGOData = () => {
@@ -184,8 +187,8 @@ export default function NGODashboard() {
       } else {
         alert(`❌ Registration failed: ${result.error}`);
       }
-    } catch (error: any) {
-      alert(`❌ Registration failed: ${error.message}`);
+    } catch (error) {
+      alert(`❌ Registration failed: ${errorMessage(error)}`);
     }
   };
 
@@ -203,7 +206,7 @@ export default function NGODashboard() {
     const result = await tokenTransferService.approveMarketplace(amount);
     setIsApproving(false);
     if (result.success) {
-      alert(`✅ Marketplace approved to sell ${amount} BCC.\n\n🔗 https://sepolia.etherscan.io/tx/${result.txHash}`);
+      alert(`✅ Marketplace approved to sell ${amount} BCC.\n\n🔗 ${getTxUrl(result.txHash!) || result.txHash}`);
       setApproveAmount('');
     } else {
       alert(`❌ Approval failed: ${result.error}`);

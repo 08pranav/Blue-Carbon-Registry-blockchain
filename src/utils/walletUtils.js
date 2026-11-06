@@ -1,4 +1,4 @@
-import { FIXED_WALLETS } from './fixedWallets.js';
+import { FIXED_WALLETS } from './fixedWallets';
 
 // Show wallet information during transactions
 export const showWalletTransactionInfo = (fromRole, toRole, amount, type, txHash = null) => {

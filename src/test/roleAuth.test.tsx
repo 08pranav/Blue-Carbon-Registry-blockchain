@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { RoleAuthProvider, useRoleAuth, TEST_ACCOUNTS } from '@/contexts/RoleAuthContext';
-import { FIXED_WALLETS, getRoleByWallet, validateWalletForRole } from '@/utils/fixedWallets.js';
+import { FIXED_WALLETS, getRoleByWallet, validateWalletForRole } from '@/utils/fixedWallets';
 
 const isAddress = (a: string) => /^0x[0-9a-fA-F]{40}$/.test(a);
 
@@ -61,11 +61,11 @@ describe('role wallets from env', () => {
   });
 
   it('uses VITE_*_WALLET overrides and keeps defaults for unset roles', async () => {
-    const defaults = (await import('@/utils/fixedWallets.js')).FIXED_WALLETS;
+    const defaults = (await import('@/utils/fixedWallets')).FIXED_WALLETS;
     vi.resetModules();
     vi.stubEnv('VITE_NGO_WALLET', NGO);
     vi.stubEnv('VITE_COMPANY_WALLET', COMPANY);
-    const { FIXED_WALLETS, getRoleByWallet } = await import('@/utils/fixedWallets.js');
+    const { FIXED_WALLETS, getRoleByWallet } = await import('@/utils/fixedWallets');
     expect(FIXED_WALLETS.NGO).toBe(NGO);
     expect(FIXED_WALLETS.COMPANY).toBe(COMPANY);
     expect(FIXED_WALLETS.AUDITOR).toBe(defaults.AUDITOR);
@@ -73,11 +73,11 @@ describe('role wallets from env', () => {
   });
 
   it('ignores an invalid override', async () => {
-    const defaults = (await import('@/utils/fixedWallets.js')).FIXED_WALLETS;
+    const defaults = (await import('@/utils/fixedWallets')).FIXED_WALLETS;
     vi.resetModules();
     vi.stubEnv('VITE_NGO_WALLET', '0xnot-an-address');
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    const { FIXED_WALLETS } = await import('@/utils/fixedWallets.js');
+    const { FIXED_WALLETS } = await import('@/utils/fixedWallets');
     expect(FIXED_WALLETS.NGO).toBe(defaults.NGO);
     expect(warn).toHaveBeenCalled();
   });

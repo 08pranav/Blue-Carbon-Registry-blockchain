@@ -7,8 +7,9 @@ import { Textarea } from '../components/ui/textarea';
 import { Badge } from '../components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { Clock, CheckCircle, XCircle, FileText, Users, Award } from 'lucide-react';
+import { errorMessage } from '@/lib/errors';
 import { tokenTransferService } from '../utils/TokenTransferService';
-import { FIXED_WALLETS } from '../utils/fixedWallets.js';
+import { FIXED_WALLETS } from '../utils/fixedWallets';
 import { validateWalletConnection, showWalletTransactionInfo } from '../utils/walletUtils.js';
 import { DemoBlockchainService } from '../utils/DemoBlockchainService.js';
 
@@ -25,6 +26,13 @@ interface Project {
   allocatedCredits?: number;
   auditNotes?: string;
   auditDate?: string;
+}
+
+interface ApprovalResult {
+  success: boolean;
+  error?: string;
+  txHash?: string;
+  message?: string;
 }
 
 export default function AuditorDashboard() {
@@ -46,6 +54,7 @@ export default function AuditorDashboard() {
 
   useEffect(() => {
     loadAllProjects();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- load once on mount
   }, []);
 
   // Load all projects from all NGOs
@@ -60,7 +69,7 @@ export default function AuditorDashboard() {
         const projects = JSON.parse(localStorage.getItem(key) || '[]');
         
         // Add NGO address to each project and add NGO name
-        const projectsWithNGO = projects.map((project: any) => ({
+        const projectsWithNGO = projects.map((project: Project) => ({
           ...project,
           ngoAddress,
           ngoName: getNGOName(ngoAddress)
@@ -120,7 +129,7 @@ export default function AuditorDashboard() {
       console.log('Auditor wallet validation passed (simplified)');
 
       // Initialize result with default failure state
-      let result: any = { success: false, error: 'Unknown error occurred' };
+      let result: ApprovalResult = { success: false, error: 'Unknown error occurred' };
 
       if (DemoBlockchainService.DEMO_MODE) {
         result = await DemoBlockchainService.simulateProjectApproval(selectedProject.id, creditsNum);
@@ -170,8 +179,8 @@ export default function AuditorDashboard() {
       } else {
         alert(`❌ ${DemoBlockchainService.DEMO_MODE ? 'Demo' : 'Blockchain'} approval failed: ${result.error}`);
       }
-    } catch (error: any) {
-      alert(`❌ Approval failed: ${error.message}`);
+    } catch (error) {
+      alert(`❌ Approval failed: ${errorMessage(error)}`);
     }
   };
 
