@@ -13,7 +13,8 @@
     "test:ci": "vitest run",
     "test:coverage": "vitest run --coverage",
     "typecheck": "tsc -p tsconfig.app.json --noEmit",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:e2e-local": "RUN_LOCAL_E2E=1 vitest run src/test/localChain.e2e.test.ts"
   },
   "dependencies": {
     "@radix-ui/react-slot": "^1.2.3",

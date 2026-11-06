@@ -135,6 +135,9 @@ Open http://localhost:8080 and choose **Try NGO / Auditor / Company Demo**. The 
 3. **Company**: *Buy Credits* calls `Marketplace.executeTrade` with ETH. The NGO receives ETH and the company receives BCC; the backend then records the sale against the transaction hash.
 4. Every step comes with a Sepolia Etherscan link.
 
+### Testing with MetaMask
+Step-by-step guide for first-time MetaMask users (Sepolia faucets, accounts per role, the full test script, Etherscan checks, troubleshooting, a local no-faucet option): [`docs/TESTING_WITH_METAMASK.md`](docs/TESTING_WITH_METAMASK.md).
+
 ### Demo wallets
 Each role must connect a specific MetaMask account. The defaults live in [`src/utils/fixedWallets.ts`](src/utils/fixedWallets.ts) and can be overridden in `.env` (see [`.env.example`](.env.example)):
 
@@ -194,6 +197,7 @@ npm run deploy:sepolia       # writes deployments/sepolia.json and updates the f
 npm run test:ci                              # frontend unit tests (Vitest)
 (cd backend && npm test)                     # API tests (node:test)
 (cd blockchain-deployment && npx hardhat test) # contract tests
+npm run test:e2e-local                       # real wallet code vs. a local Hardhat node (starts one itself)
 ```
 
 The contract suite deploys through the same `deployCore()` the deploy scripts use, and covers the full lifecycle: token ownership by the Marketplace, minting only through `verifyNGO`, NGO registration and verification, trading (ETH to seller, BCC to buyer), and the revert cases (direct mint, non-admin verify, missing approval, zero payment/amount).

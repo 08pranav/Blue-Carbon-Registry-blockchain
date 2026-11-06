@@ -23,7 +23,7 @@ export const NETWORKS = {
     chainId: 31337,
     chainIdHex: "0x7a69",
     chainName: "Hardhat Local",
-    rpcUrls: ["http://127.0.0.1:8545"],
+    rpcUrls: [import.meta.env.VITE_LOCAL_RPC_URL || "http://127.0.0.1:8545"],
     blockExplorerUrls: [],
     nativeCurrency: {
       name: "ETH",

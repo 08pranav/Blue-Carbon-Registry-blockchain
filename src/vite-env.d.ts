@@ -3,6 +3,7 @@
 interface ImportMetaEnv {
   readonly VITE_API_BASE_URL?: string;
   readonly VITE_NETWORK?: string;
+  readonly VITE_LOCAL_RPC_URL?: string;
   readonly VITE_LOCAL_TOKEN_ADDRESS?: string;
   readonly VITE_LOCAL_MARKETPLACE_ADDRESS?: string;
   readonly VITE_NGO_WALLET?: string;
