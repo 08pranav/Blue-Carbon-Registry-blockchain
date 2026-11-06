@@ -2,7 +2,7 @@
 
 **A blockchain registry and marketplace for blue carbon credits: carbon removed by mangroves, seagrass meadows and salt marshes.**
 
-NGOs submit coastal restoration projects with photo evidence. Auditors review them and mint ERC-20 carbon credit tokens (**BCC**) on Ethereum. Companies buy those credits with ETH. Every issuance and sale is a public, verifiable on-chain transaction.
+NGOs submit coastal restoration projects with photo evidence. Auditors review them and issue ERC-20 carbon credit tokens (**BCC**) on Ethereum. Companies buy those credits with ETH. Every issuance and sale is a public, verifiable on-chain transaction.
 
 ![CI](https://github.com/08pranav/blue-carbon-registry-blockchain/actions/workflows/ci.yml/badge.svg)
 ![Solidity](https://img.shields.io/badge/Solidity-0.8.20-363636?logo=solidity)
@@ -22,7 +22,7 @@ This project puts the credit lifecycle on a public blockchain:
 
 | Problem | How the registry addresses it |
 |---|---|
-| Opaque issuance | Credits are minted **only** by the auditor's wallet (contract owner); every mint is an on-chain event |
+| Opaque issuance | Credits can be minted **only** through `Marketplace.verifyNGO()`, which only the auditor (Marketplace admin) can call; every mint emits `CreditsMinted` |
 | Double counting | Each BCC is an ERC-20 token, so it exists in exactly one wallet at a time |
 | Slow, trust-based settlement | A smart contract swaps credits for ETH atomically: the NGO is paid and the buyer receives tokens in one transaction |
 | Weak evidence | Uploaded field photos are automatically screened (resolution, EXIF GPS vs. project location, vegetation colour signal) before human review |
@@ -54,7 +54,7 @@ This project puts the credit lifecycle on a public blockchain:
 | Role | What they do |
 |---|---|
 | 🏛️ **NGO** | Submits restoration projects (location, area, ecosystem, species, photos), tracks review status, approves credits for sale |
-| 🛡️ **Auditor** | Reviews pending projects alongside the automated evidence report, approves or rejects, and mints BCC to the NGO's wallet |
+| 🛡️ **Auditor** | Reviews pending projects alongside the automated evidence report, approves or rejects, and issues BCC to the NGO's wallet |
 | 🏢 **Company** | Browses verified credits on the marketplace and buys them with ETH through MetaMask |
 
 | NGO | Auditor | Company |
@@ -68,12 +68,12 @@ This project puts the credit lifecycle on a public blockchain:
 Source: [`blockchain-deployment/contracts`](blockchain-deployment/contracts)
 
 **`CarbonCreditToken.sol`**: ERC-20 (`Blue Carbon Credit`, `BCC`) built on OpenZeppelin
-- No initial supply; tokens are created only through `mint()`, restricted to the owner (the auditor)
+- No initial supply; tokens are created only through `mint()`, restricted to the owner. **The owner is the Marketplace contract** (the deploy scripts call `transferOwnership`), so the only way to issue BCC is `Marketplace.verifyNGO()`
 - `burn()` lets holders retire credits once they've been used to offset emissions
 
 **`Marketplace.sol`**: registry and trading
 - `registerNGO` / `registerCompany`: on-chain identities with IPFS document hashes
-- `verifyNGO`: admin sets NGO status (`Pending → Verified/Rejected`) and can allocate credits
+- `verifyNGO`: admin (the auditor wallet) sets NGO status (`Pending → Verified/Rejected`) and mints the allocated credits to the NGO
 - `executeTrade(seller, buyer, amount, pdfHash)`: buyer sends ETH, contract moves BCC from seller to buyer and forwards ETH to seller, recording a trade receipt
 - Events for every action (`NGORegistered`, `CreditsMinted`, `TradeExecuted`, …) so the full history can be indexed
 
@@ -126,10 +126,23 @@ Open http://localhost:8080 and choose **Try NGO / Auditor / Company Demo**. The 
 > **Optional config:** copy `.env.example` to `.env` to change the API URL or feature flags. The app already points at the Sepolia contracts above.
 
 ### 3. End-to-end on-chain flow
-1. **Auditor**: approve a pending project and mint BCC to the NGO wallet (MetaMask signs the `mint` transaction).
+1. **Auditor**: approve a pending project. MetaMask signs `verifyNGO(...)` (preceded by `registerNGO` if the NGO has no on-chain record yet), which mints the BCC to the NGO wallet.
 2. **NGO**: *Manage Credits → Approve Credits for On-Chain Sale* lets the Marketplace sell that many BCC.
 3. **Company**: *Buy Credits* calls `Marketplace.executeTrade` with ETH. The NGO receives ETH and the company receives BCC.
 4. Every step comes with a Sepolia Etherscan link.
+
+### Demo wallets
+Each role must connect a specific MetaMask account. The defaults live in [`src/utils/fixedWallets.js`](src/utils/fixedWallets.js) and can be overridden in `.env` (see [`.env.example`](.env.example)):
+
+| Role | Env var | Default |
+|---|---|---|
+| NGO | `VITE_NGO_WALLET` | `0x24cF2631Cd812089e14da2Bb6d7A7C5505258656` |
+| Auditor | `VITE_AUDITOR_WALLET` | `0x179d59195f5771E907463986bCE98B0369e52837` (the Marketplace admin) |
+| Company | `VITE_COMPANY_WALLET` | `0x179d59195f5771E907463986bCE98B0369e52837` |
+
+The Auditor wallet must be the account that deployed the Marketplace, because only the Marketplace admin can call `verifyNGO`. The default Company wallet equals the Auditor wallet; set `VITE_COMPANY_WALLET` to give the Company its own account.
+
+To check the live Sepolia deployment (read-only, no key needed): `node scripts/check-sepolia.mjs`.
 
 ### Run with Docker
 ```bash
@@ -162,26 +175,8 @@ npm run test:ci                              # frontend unit tests (Vitest)
 cd blockchain-deployment && npx hardhat test # contract tests
 ```
 
-The contract suite covers the full lifecycle: minting permissions, NGO registration and verification, minting on verification, trading (ETH to seller, BCC to buyer), and the revert cases (unauthorised mint, missing approval, zero payment/amount).
+The contract suite deploys through the same `deployCore()` the deploy scripts use, and covers the full lifecycle: token ownership by the Marketplace, minting only through `verifyNGO`, NGO registration and verification, trading (ETH to seller, BCC to buyer), and the revert cases (direct mint, non-admin verify, missing approval, zero payment/amount).
 
-```
-  Blue Carbon Registry
-    CarbonCreditToken
-      ✔ has the right name/symbol and starts with zero supply
-      ✔ lets only the owner (auditor/admin) mint
-      ✔ lets holders burn (retire) their credits
-    Marketplace registry
-      ✔ registers an NGO as Pending and blocks duplicates
-      ✔ only admin can verify an NGO
-      ✔ mints on verification once the marketplace owns the token
-      ✔ registers companies
-    Trading
-      ✔ reverts if the NGO has not approved the marketplace
-      ✔ moves BCC to the company and ETH to the NGO
-      ✔ requires payment and a positive amount
-
-  10 passing
-```
 
 ---
 

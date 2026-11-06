@@ -17,7 +17,8 @@ const [TOKEN, MARKET] = [sepolia[1], sepolia[2]];
 
 const walletsSrc = readFileSync(new URL("../src/utils/fixedWallets.js", import.meta.url), "utf8");
 const wallets = {};
-for (const m of walletsSrc.matchAll(/(NGO|COMPANY|AUDITOR):\s*(?:import\.meta\.env\.\w+\s*\|\|\s*)?'(0x[0-9a-fA-F]{40})'/g)) wallets[m[1]] = m[2];
+// Defaults from fixedWallets.js, overridable with the same VITE_*_WALLET env vars the app uses.
+for (const m of walletsSrc.matchAll(/(NGO|COMPANY|AUDITOR):\s*'(0x[0-9a-fA-F]{40})'/g)) wallets[m[1]] = process.env[`VITE_${m[1]}_WALLET`] || m[2];
 
 async function connect() {
   for (const url of RPC_URLS) {
