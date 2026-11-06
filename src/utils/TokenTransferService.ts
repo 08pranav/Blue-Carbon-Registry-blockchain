@@ -7,6 +7,20 @@ export class TokenTransferService {
   private provider: ethers.BrowserProvider | null = null;
   private signer: ethers.Signer | null = null;
   private tokenContract: ethers.Contract | null = null;
+  private readProvider: ethers.JsonRpcProvider | null = null;
+
+  /** Read-only provider on the configured network's public RPC: no wallet prompt needed. */
+  private getReadProvider(): ethers.JsonRpcProvider {
+    if (!this.readProvider) {
+      const { rpcUrls, chainId } = BLOCKCHAIN_CONFIG.NETWORK_CONFIG;
+      this.readProvider = new ethers.JsonRpcProvider(rpcUrls[0], chainId, { staticNetwork: true });
+    }
+    return this.readProvider;
+  }
+
+  private getReadToken(): ethers.Contract {
+    return new ethers.Contract(BLOCKCHAIN_CONFIG.TOKEN_ADDRESS, BLOCKCHAIN_CONFIG.TOKEN_ABI, this.getReadProvider());
+  }
 
   async initialize() {
     if (!window.ethereum) {
@@ -392,8 +406,7 @@ export class TokenTransferService {
    */
   async getMarketplaceAllowance(ownerAddress: string): Promise<string> {
     try {
-      await this.initialize();
-      const allowance = await this.tokenContract!.allowance(ownerAddress, BLOCKCHAIN_CONFIG.MARKETPLACE_ADDRESS);
+      const allowance = await this.getReadToken().allowance(ownerAddress, BLOCKCHAIN_CONFIG.MARKETPLACE_ADDRESS);
       return ethers.formatEther(allowance);
     } catch (error) {
       console.error('Failed to get allowance:', error);
@@ -406,8 +419,7 @@ export class TokenTransferService {
    */
   async getTokenBalance(address: string): Promise<string> {
     try {
-      await this.initialize();
-      const balance = await this.tokenContract!.balanceOf(address);
+      const balance = await this.getReadToken().balanceOf(address);
       return ethers.formatEther(balance);
     } catch (error) {
       console.error('Failed to get token balance:', error);
@@ -420,8 +432,7 @@ export class TokenTransferService {
    */
   async getETHBalance(address: string): Promise<string> {
     try {
-      if (!this.provider) await this.initialize();
-      const balance = await this.provider!.getBalance(address);
+      const balance = await this.getReadProvider().getBalance(address);
       return ethers.formatEther(balance);
     } catch (error) {
       console.error('Failed to get ETH balance:', error);

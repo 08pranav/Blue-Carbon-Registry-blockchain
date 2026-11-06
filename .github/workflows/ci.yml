@@ -23,6 +23,9 @@ jobs:
       - name: Backend install
         run: npm ci
         working-directory: backend
+      - name: Backend tests
+        run: npm test
+        working-directory: backend
 
   contracts:
     name: Smart contracts (Hardhat tests)

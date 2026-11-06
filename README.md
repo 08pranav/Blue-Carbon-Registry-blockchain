@@ -25,7 +25,7 @@ This project puts the credit lifecycle on a public blockchain:
 | Opaque issuance | Credits can be minted **only** through `Marketplace.verifyNGO()`, which only the auditor (Marketplace admin) can call; every mint emits `CreditsMinted` |
 | Double counting | Each BCC is an ERC-20 token, so it exists in exactly one wallet at a time |
 | Slow, trust-based settlement | A smart contract swaps credits for ETH atomically: the NGO is paid and the buyer receives tokens in one transaction |
-| Weak evidence | Uploaded field photos are automatically screened (resolution, EXIF GPS vs. project location, vegetation colour signal) before human review |
+| Weak evidence | Uploaded field photos get a rule-based pre-check (resolution, EXIF GPS vs. project location, vegetation colour heuristic) before human review |
 
 ---
 
@@ -121,14 +121,16 @@ cd backend && npm start
 # terminal 2: web app on http://localhost:8080
 npm run dev
 ```
-Open http://localhost:8080 and choose **Try NGO / Auditor / Company Demo**. The backend comes with sample projects and marketplace listings.
+Open http://localhost:8080 and choose **Try NGO / Auditor / Company Demo**. The Vite dev server proxies `/api` to the backend, which starts with two sample projects waiting for an auditor. The marketplace starts empty: listings appear once an auditor approves a project.
 
 > **Optional config:** copy `.env.example` to `.env` to change the API URL or feature flags. The app already points at the Sepolia contracts above.
 
 ### 3. End-to-end on-chain flow
+0. **NGO**: *Submit New Project* with field photos. The backend screens them and the project appears in the auditor's queue.
 1. **Auditor**: approve a pending project. MetaMask signs `verifyNGO(...)` (preceded by `registerNGO` if the NGO has no on-chain record yet), which mints the BCC to the NGO wallet.
-2. **NGO**: *Manage Credits → Approve Credits for On-Chain Sale* lets the Marketplace sell that many BCC.
-3. **Company**: *Buy Credits* calls `Marketplace.executeTrade` with ETH. The NGO receives ETH and the company receives BCC.
+   Approval records the issuance in the backend and creates a marketplace listing (default price 0.001 ETH per credit).
+2. **NGO**: *Manage Credits* lets you set the quantity and ETH price of the listing, and *Approve Credits for On-Chain Sale* lets the Marketplace contract sell that many BCC.
+3. **Company**: *Buy Credits* calls `Marketplace.executeTrade` with ETH. The NGO receives ETH and the company receives BCC; the backend then records the sale against the transaction hash.
 4. Every step comes with a Sepolia Etherscan link.
 
 ### Demo wallets
@@ -172,7 +174,8 @@ npm run deploy:sepolia       # writes deployments/sepolia.json and updates the f
 
 ```bash
 npm run test:ci                              # frontend unit tests (Vitest)
-cd blockchain-deployment && npx hardhat test # contract tests
+(cd backend && npm test)                     # API tests (node:test)
+(cd blockchain-deployment && npx hardhat test) # contract tests
 ```
 
 The contract suite deploys through the same `deployCore()` the deploy scripts use, and covers the full lifecycle: token ownership by the Marketplace, minting only through `verifyNGO`, NGO registration and verification, trading (ETH to seller, BCC to buyer), and the revert cases (direct mint, non-admin verify, missing approval, zero payment/amount).
