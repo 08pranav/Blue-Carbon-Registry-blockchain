@@ -19,6 +19,13 @@ if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
 
+// On Vercel the backend runs as a service mounted at /api. Depending on the platform the mount
+// prefix may be stripped from the URL, so put it back; if it is already there nothing changes.
+app.use((req, res, next) => {
+  if (process.env.VERCEL && !/^\/(api|uploads)(\/|$)/.test(req.url)) req.url = '/api' + req.url;
+  next();
+});
+
 // Middleware
 app.use(cors());
 app.use(express.json());

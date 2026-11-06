@@ -190,15 +190,13 @@ Image on Docker Hub: https://hub.docker.com/r/08pranav/blue-carbon-registry
 To publish a new version: `docker login`, then `docker buildx build --platform linux/amd64,linux/arm64 -t 08pranav/blue-carbon-registry:latest --push .`
 
 ### Deploy to Vercel
-The SPA is built by Vite and the API runs as one serverless function ([`api/index.js`](api/index.js)) that serves the same Express app as `backend/`. [`vercel.json`](vercel.json) installs both dependency sets and rewrites `/api/*` and `/uploads/*` to the function and everything else to `index.html`. The app calls same-origin `/api`, so `VITE_API_BASE_URL` stays empty.
+[`vercel.json`](vercel.json) defines a multi-service project: `app` (the Vite SPA, root `.`) and `backend` (the Express API in `backend/`, served under `/api`). Requests to `/api/*` go to the `backend` service and everything else to `app`. The app calls same-origin `/api`, so `VITE_API_BASE_URL` stays empty.
 
-```bash
-npm i -g vercel
-vercel login
-vercel            # first run: link/create the project, accept the detected Vite settings
-vercel --prod     # production deployment
-```
-Or import the GitHub repo at vercel.com/new (root directory `./`); no environment variables are required. Optional: `VITE_NGO_WALLET` / `VITE_AUDITOR_WALLET` / `VITE_COMPANY_WALLET` (build-time), `DEMO_NGO_WALLET`, `DEFAULT_PRICE_ETH`. After deploying, check `https://<your-app>.vercel.app/api/health` returns `{"status":"OK",...}` and that reloading `/login` still works.
+1. At vercel.com/new import `08pranav/Blue-Carbon-Registry-blockchain`. Vercel should detect the two services from `vercel.json` (click **Refresh** if it still asks for configuration).
+2. Deploy. No environment variables are required. Optional: `VITE_NGO_WALLET` / `VITE_AUDITOR_WALLET` / `VITE_COMPANY_WALLET` (build-time), `DEMO_NGO_WALLET`, `DEFAULT_PRICE_ETH`.
+3. Check `https://<your-app>.vercel.app/api/health` returns `{"status":"OK",...}` and that reloading `/login` still works.
+
+Or from the CLI: `npm i -g vercel && vercel login && vercel --prod`.
 
 Limits of this setup, because the backend keeps its data in memory:
 - Data lives in one function instance and is lost on cold starts or when Vercel starts another instance, so projects can disappear between requests. Fine for a short demo, not for real use.

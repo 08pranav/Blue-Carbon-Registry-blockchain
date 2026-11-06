@@ -82,14 +82,14 @@ Roles are demo logins (a role picker with fixed wallets), not real authenticatio
         │ - listings, purchases           │     │   registerCompany / executeTrade   │
         │ - in-memory store               │     │         │ mint / transferFrom      │
         │ Dev: node server.js (:3001)     │     │         ▼                          │
-        │ Vercel: api/index.js            │     │  CarbonCreditToken.sol (ERC-20 BCC)│
+        │ Vercel: `backend` service       │     │  CarbonCreditToken.sol (ERC-20 BCC)│
         └─────────────────────────────────┘     └────────────────────────────────────┘
             ▲ read-only balances: public RPC (ethers JsonRpcProvider) from the browser
 ```
 
 **Components**
 - **Frontend** (`src/`): React 18, TypeScript, Vite, Tailwind, shadcn/ui, React Router. Dashboards are lazy-loaded. `src/utils/TokenTransferService.ts` holds the wallet logic (issue, approve, buy, balances). `src/lib/api.ts` is the backend client.
-- **Backend** (`backend/app.js`, started by `backend/server.js`): Express API with in-memory storage. Also the Vercel function entry (`api/index.js` re-exports it).
+- **Backend** (`backend/app.js`, started by `backend/server.js`): Express API with in-memory storage. Also deployed as the `backend` service in the Vercel multi-service config (`vercel.json`).
 - **Contracts** (`blockchain-deployment/`): two Solidity contracts, Hardhat tests, deploy scripts.
 - **Config:** `src/utils/fixedWallets.ts` (role wallets, env-overridable), `src/blockchain-integration/config.ts` (networks, addresses, ABIs).
 - **Deploy:** Vercel (SPA + function) or Docker (nginx + backend).
