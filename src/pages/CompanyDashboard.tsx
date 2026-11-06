@@ -218,21 +218,13 @@ export default function CompanyDashboard() {
       }
 
       // Execute purchase
-      let result = await tokenTransferService.transferCreditsToCompany(
+      const result = await tokenTransferService.transferCreditsToCompany(
         listing.ngoAddress,
         FIXED_WALLETS.COMPANY,
         quantity,
         totalPrice
       );
       
-      // If blockchain fails, fallback to demo mode
-      if (!result.success) {
-        console.log('🔄 Blockchain purchase failed, using fallback mode...');
-        const { DemoBlockchainService } = await import('../utils/DemoBlockchainService.js');
-        const demoService = new DemoBlockchainService();
-        result = await demoService.simulatePurchase(listing.ngoAddress, FIXED_WALLETS.COMPANY, quantity, totalPrice);
-      }
-
       if (result.success) {
         // Show success message with transaction details
         const message = result.message || `✅ Successfully purchased ${quantity} carbon credits!`;

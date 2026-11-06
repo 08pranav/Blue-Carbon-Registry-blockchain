@@ -29,7 +29,6 @@ interface Project {
 
 export default function AuditorDashboard() {
   const { authState, logout } = useRoleAuth();
-  const [permissionFixed, setPermissionFixed] = useState(true); // Assume auditor always has minting permissions
   
   // Mock blockchain connection state for simplified auditor workflow
   const isConnected = true;
@@ -108,15 +107,10 @@ export default function AuditorDashboard() {
       return;
     }
 
-    if (!permissionFixed && !DemoBlockchainService.DEMO_MODE) {
-      const shouldFix = window.confirm('⚠️ Blockchain permissions need to be setup first.\n\nClick "Fix Permissions" button to enable token minting, then try approving projects again.');
-      return;
-    }
-
     const confirmApproval = window.confirm(
       DemoBlockchainService.DEMO_MODE 
         ? `� DEMO MODE APPROVAL\n\nApprove project "${selectedProject.title}" and simulate minting ${creditsNum} carbon credits to NGO "${selectedProject.ngoName}"?\n\n✨ This is a demonstration - no real blockchain transactions will occur.`
-        : `�🌊 BLOCKCHAIN APPROVAL\n\nApprove project "${selectedProject.title}" and mint ${creditsNum} carbon credits to NGO "${selectedProject.ngoName}"?\n\n💰 This will use ETH for gas fees on Sepolia testnet and create real blockchain tokens.`
+        : `🌊 BLOCKCHAIN APPROVAL\n\nApprove project "${selectedProject.title}" and issue ${creditsNum} BCC to NGO "${selectedProject.ngoName}" via Marketplace.verifyNGO()?\n\nMetaMask will ask you to confirm the transaction (and a registerNGO transaction first if this NGO has no on-chain record). Gas is paid in Sepolia ETH.`
     );
 
     if (!confirmApproval) return;
@@ -128,61 +122,17 @@ export default function AuditorDashboard() {
       // Initialize result with default failure state
       let result: any = { success: false, error: 'Unknown error occurred' };
 
-      // Use demo service if in demo mode or if blockchain fails
       if (DemoBlockchainService.DEMO_MODE) {
         result = await DemoBlockchainService.simulateProjectApproval(selectedProject.id, creditsNum);
       } else {
-        // Try real blockchain first, fallback to demo if it fails
-        try {
-          console.log(`🔄 Attempting real blockchain minting of ${creditsNum} tokens...`);
-          const blockchainResult = await tokenTransferService.mintCreditsToNGO(
-            FIXED_WALLETS.NGO,
-            creditsNum,
-            FIXED_WALLETS.AUDITOR
-          );
-          
-          // Check if blockchain result is valid
-          if (blockchainResult && typeof blockchainResult === 'object') {
-            result = blockchainResult;
-          } else {
-            throw new Error('Invalid response from blockchain service');
-          }
-          
-          // If blockchain fails, fallback to demo mode
-          if (!result.success) {
-            console.log(`⚠️ Blockchain minting failed, falling back to demo mode: ${result.error}`);
-            const demoResult = await DemoBlockchainService.simulateProjectApproval(selectedProject.id, creditsNum, true); // Force fallback mode
-            
-            if (demoResult && typeof demoResult === 'object') {
-              result = demoResult;
-              
-              // Show user that we fell back to demo with detailed explanation
-              if (result.success) {
-                const errorSummary = result.error?.includes('Gas estimation failed') 
-                  ? 'Contract deployment or permission issue detected'
-                  : 'Blockchain connectivity issue';
-                
-                alert(`🔄 Switched to Fallback Mode\n\n${errorSummary}\n\n✅ Project approved successfully!\n\n📝 Note: Used simulation mode due to blockchain issues. Real integration will work once the contract is properly deployed on Sepolia testnet with correct permissions.`);
-              }
-            }
-          }
-        } catch (blockchainError) {
-          console.error('Blockchain service completely failed, using demo mode:', blockchainError);
-          
-          try {
-            const demoResult = await DemoBlockchainService.simulateProjectApproval(selectedProject.id, creditsNum, true); // Force fallback mode
-            if (demoResult && typeof demoResult === 'object') {
-              result = demoResult;
-              
-              if (result.success) {
-                alert(`🔄 Blockchain Service Error - Using Fallback Mode\n\n✅ Project approved successfully!\n\n🔧 Technical Details:\nBlockchain service encountered an error and automatically switched to fallback mode for seamless operation.\n\n📋 Error: ${blockchainError}\n\n💡 The approval is recorded and will sync when blockchain is available.`);
-              }
-            }
-          } catch (demoError) {
-            console.error('Fallback service also failed:', demoError);
-            result = { success: false, error: `Both blockchain and fallback services failed: ${blockchainError}` };
-          }
-        }
+        // Real on-chain issuance via Marketplace.verifyNGO(). No silent fallback: if the
+        // transaction fails, the project stays pending and the auditor sees why.
+        result = await tokenTransferService.mintCreditsToNGO(
+          selectedProject.ngoAddress,
+          creditsNum,
+          FIXED_WALLETS.AUDITOR,
+          selectedProject.ngoName
+        );
       }
 
       // Ensure result is always a valid object with success property
