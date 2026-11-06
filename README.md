@@ -138,6 +138,9 @@ Open http://localhost:8080 and choose **Try NGO / Auditor / Company Demo**. The 
 ### Testing with MetaMask
 Step-by-step guide for first-time MetaMask users (Sepolia faucets, accounts per role, the full test script, Etherscan checks, troubleshooting, a local no-faucet option): [`docs/TESTING_WITH_METAMASK.md`](docs/TESTING_WITH_METAMASK.md).
 
+### Project showcase
+A detailed, fact-checked write-up of the architecture, contracts, engineering challenges and measured numbers (also usable as source material for posts): [`docs/PROJECT_SHOWCASE.md`](docs/PROJECT_SHOWCASE.md).
+
 ### Demo wallets
 Each role must connect a specific MetaMask account. The defaults live in [`src/utils/fixedWallets.ts`](src/utils/fixedWallets.ts) and can be overridden in `.env` (see [`.env.example`](.env.example)):
 
