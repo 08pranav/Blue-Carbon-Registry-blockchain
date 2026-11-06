@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { FIXED_WALLETS } from '../utils/fixedWallets.js';
 
 export type UserRole = 'NGO' | 'AUDITOR' | 'COMPANY';
 
@@ -26,19 +27,19 @@ interface RoleAuthContextType {
 export const TEST_ACCOUNTS: TestAccount[] = [
   {
     role: 'NGO',
-    address: '0x24cF2631Cd812089e14da2Bb6d7A7C5505258656',
+    address: FIXED_WALLETS.NGO,
     name: 'Mumbai Coastal Conservation Society',
     email: 'info@mumbaicoastal.org.in'
   },
   {
     role: 'AUDITOR', 
-    address: '0x179d59195f5771E907463986bCE98B0369e52837',
+    address: FIXED_WALLETS.AUDITOR,
     name: 'Maharashtra Blue Carbon Authority',
     email: 'auditor@mahabluecarbon.gov.in'
   },
   {
     role: 'COMPANY',
-    address: '0x8ba1f109551bD432803012645Hac136c82C5761',
+    address: FIXED_WALLETS.COMPANY,
     name: 'Tata Sustainability Solutions',
     email: 'carbon.offset@tata.com'
   }

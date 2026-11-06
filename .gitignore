@@ -35,3 +35,10 @@ backend/uploads/*
 !backend/uploads/.gitkeep
 backend/*.log
 backend/logs/
+
+# Build/test output
+coverage/
+blockchain-deployment/artifacts/
+blockchain-deployment/cache/
+blockchain-deployment/hh-local.cjs
+blockchain-deployment/deployments/localhost.json

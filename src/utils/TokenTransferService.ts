@@ -8,19 +8,7 @@ export class TokenTransferService {
   private tokenContract: ethers.Contract | null = null;
 
   async initialize() {
-    if (!        return {
-          success: true,
-          txHash: tradeTx.hash,
-          paymentTx: tradeTx.hash,
-          companyWallet: companyAddress, 
-          ngoWallet: ngoAddress,
-          message: `✅ MARKETPLACE TRADE COMPLETE!\n\n💰 ETH Payment: ${paymentAmountETH} ETH sent to NGO\n🪙 BCC Tokens: ${creditAmount} BCC minted to Company\n\n🔗 Trade TX: ${tradeTx.hash}\n🔍 View on Etherscan: https://sepolia.etherscan.io/tx/${tradeTx.hash}`,
-          balances: {
-            companyETH: ethers.formatEther(companyETHBalance),
-            companyBCC: ethers.formatEther(companyTokenBalance),
-            ngoETH: ethers.formatEther(ngoETHBalance)
-          }
-        };um) {
+    if (!window.ethereum) {
       throw new Error('MetaMask not installed! Please install MetaMask to use blockchain features.');
     }
 
@@ -313,6 +301,16 @@ export class TokenTransferService {
       const tokenAmount = ethers.parseEther(creditAmount.toString());
       const paymentAmount = ethers.parseEther(paymentAmountETH);
 
+      // Marketplace.executeTrade uses transferFrom(NGO -> Company), so the NGO
+      // must have approved the marketplace for at least this many credits.
+      const allowance: bigint = await this.tokenContract!.allowance(ngoAddress, BLOCKCHAIN_CONFIG.MARKETPLACE_ADDRESS);
+      if (allowance < tokenAmount) {
+        throw new Error(
+          `The NGO has only approved ${ethers.formatEther(allowance)} BCC for sale on the marketplace (need ${creditAmount}). ` +
+          `Ask the NGO to open "Manage Credits" and approve credits for sale first.`
+        );
+      }
+
       // Execute trade through marketplace (combines payment + minting)
       console.log(`🏪 MARKETPLACE TRANSACTION: Executing complete trade`);
       console.log(`📤 Seller (NGO): ${ngoAddress}`);
@@ -328,31 +326,7 @@ export class TokenTransferService {
         throw new Error(`Insufficient balance. Need ${ethers.formatEther(requiredAmount)} ETH, have ${ethers.formatEther(currentBalance)} ETH`);
       }
       
-      // Create marketplace contract
-      const marketplaceContract = new ethers.Contract(
-        BLOCKCHAIN_CONFIG.MARKETPLACE_ADDRESS,
-        BLOCKCHAIN_CONFIG.MARKETPLACE_ABI,
-        this.signer
-      );
-      
-      const pdfHash = `trade_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      
-      const tradeTx = await marketplaceContract.executeTrade(
-        ngoAddress,      // seller (NGO)
-        companyAddress,  // buyer (Company) 
-        tokenAmount,     // amount of tokens
-        pdfHash,         // pdf hash
-        { 
-          value: paymentAmount,
-          gasLimit: 500000
-        }
-      );
-      
-      console.log(`⏳ Marketplace trade submitted: ${tradeTx.hash}`);
-      const tradeReceipt = await tradeTx.wait();
-      console.log(`✅ Marketplace trade confirmed! Block: ${tradeReceipt?.blockNumber}`);
-
-      // Step 2: Execute trade through marketplace (this mints BCC tokens to Company)
+      // Execute trade through marketplace (pays NGO in ETH + mints BCC to Company)
       console.log(`🏪 REAL TRANSACTION: Executing trade through marketplace contract`);
       console.log(`📦 Credits: ${creditAmount} BCC`);
       console.log(`💰 Payment: ${paymentAmountETH} ETH`);
@@ -398,10 +372,10 @@ export class TokenTransferService {
         return {
           success: true,
           txHash: tradeTx.hash,
-          paymentTx: paymentTx.hash,
+          paymentTx: tradeTx.hash,
           companyWallet: companyAddress, 
           ngoWallet: ngoAddress,
-          message: `✅ MARKETPLACE TRADE COMPLETE!\n\n💰 ETH Payment: ${paymentAmountETH} ETH sent to NGO\n🪙 BCC Tokens: ${creditAmount} BCC minted to Company\n\n� Trade TX: ${tradeTx.hash}\n� View on Etherscan: https://sepolia.etherscan.io/tx/${tradeTx.hash}`,
+          message: `✅ MARKETPLACE TRADE COMPLETE!\n\n💰 ETH Payment: ${paymentAmountETH} ETH sent to NGO\n🪙 BCC Tokens: ${creditAmount} BCC minted to Company\n\n🔗 Trade TX: ${tradeTx.hash}\n🔍 View on Etherscan: https://sepolia.etherscan.io/tx/${tradeTx.hash}`,
           balances: {
             companyETH: ethers.formatEther(companyETHBalance),
             companyBCC: ethers.formatEther(companyTokenBalance),
@@ -411,33 +385,8 @@ export class TokenTransferService {
         
       } catch (marketplaceError: any) {
         console.error('❌ Marketplace trade failed:', marketplaceError);
-        
-        // Fall back to the old payment + demo approach
-        console.log(`🔄 Falling back to payment-only approach...`);
-        
-        // Still show real balances for payment
-        const companyETHBalance = await this.provider!.getBalance(companyAddress);
-        const companyTokenBalance = await this.tokenContract!.balanceOf(companyAddress);
-        const ngoETHBalance = await this.provider!.getBalance(ngoAddress);
-      
-      console.log(`💰 Post-transaction balances:`);
-      console.log(`Company ETH: ${ethers.formatEther(companyETHBalance)} ETH`);
-      console.log(`Company BCC: ${ethers.formatEther(companyTokenBalance)} BCC`);
-      console.log(`NGO ETH: ${ethers.formatEther(ngoETHBalance)} ETH`);
-      
-      return {
-        success: true,
-        txHash: mintTx.hash,
-        paymentTx: paymentTx.hash,
-        ngoWallet: ngoAddress,
-        companyWallet: companyAddress,
-        message: `✅ REAL Blockchain Transaction Complete!\n💰 ETH Payment: ${paymentAmountETH} ETH sent to NGO\n🪙 BCC Tokens: ${creditAmount} BCC minted to Company\n\n🔗 Payment TX: https://sepolia.etherscan.io/tx/${paymentTx.hash}\n🔗 Minting TX: https://sepolia.etherscan.io/tx/${mintTx.hash}`,
-        balances: {
-          companyETH: ethers.formatEther(companyETHBalance),
-          companyBCC: ethers.formatEther(companyTokenBalance),
-          ngoETH: ethers.formatEther(ngoETHBalance)
-        }
-      };
+        throw marketplaceError;
+      }
 
     } catch (error: any) {
       console.error('Token transfer failed:', error);
@@ -463,6 +412,37 @@ export class TokenTransferService {
         companyWallet: companyAddress,
         ngoWallet: ngoAddress
       };
+    }
+  }
+
+  /**
+   * NGO approves the marketplace contract to sell `creditAmount` BCC on its behalf.
+   * Required before any company can buy credits via Marketplace.executeTrade.
+   */
+  async approveMarketplace(creditAmount: number): Promise<{ success: boolean; txHash?: string; error?: string }> {
+    try {
+      await this.initialize();
+      const amount = ethers.parseEther(creditAmount.toString());
+      const tx = await this.tokenContract!.approve(BLOCKCHAIN_CONFIG.MARKETPLACE_ADDRESS, amount);
+      await tx.wait();
+      return { success: true, txHash: tx.hash };
+    } catch (error: any) {
+      const msg = error?.message?.includes('user rejected') ? 'Transaction was rejected by user' : (error?.message || 'Approval failed');
+      return { success: false, error: msg };
+    }
+  }
+
+  /**
+   * How many BCC the marketplace may currently sell on behalf of `ownerAddress`.
+   */
+  async getMarketplaceAllowance(ownerAddress: string): Promise<string> {
+    try {
+      await this.initialize();
+      const allowance = await this.tokenContract!.allowance(ownerAddress, BLOCKCHAIN_CONFIG.MARKETPLACE_ADDRESS);
+      return ethers.formatEther(allowance);
+    } catch (error) {
+      console.error('Failed to get allowance:', error);
+      return '0';
     }
   }
 
