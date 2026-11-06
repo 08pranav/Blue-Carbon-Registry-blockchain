@@ -447,7 +447,7 @@ Repo and a step-by-step MetaMask guide are linked below.
 
 **Is this real money or real carbon credits?** No. It runs on the Sepolia test network with free test ETH. BCC tokens are demo tokens with no real-world carbon value.
 
-**Is it live? Can I try it?** The contracts are live on Sepolia. A hosted web demo is not set up yet (placeholder in the README). You can run it locally in a few minutes; see `docs/TESTING_WITH_METAMASK.md`.
+**Is it live? Can I try it?** Yes: the web app is at https://blue-carbon-registry-blockchain.vercel.app and the contracts are live on Sepolia. The hosted backend keeps its data in memory, so a submitted project can disappear between requests; for a reliable walkthrough run it locally (see `docs/TESTING_WITH_METAMASK.md`) or watch the demo video.
 
 **Is the photo check AI?** No. It is rule-based: file type and size, resolution, distance between the photo's GPS tags and the project's location, and a simple "is it mostly green" test. A human auditor decides.
 

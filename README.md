@@ -6,8 +6,9 @@ NGOs submit coastal restoration projects with photo evidence. Auditors review th
 
 **Docker image:** [`08pranav/blue-carbon-registry`](https://hub.docker.com/r/08pranav/blue-carbon-registry) on Docker Hub: `docker run --rm -p 3000:3001 08pranav/blue-carbon-registry`, then open http://localhost:3000
 
-**Live demo:** https://blue-carbon-registry-blockchain.vercel.app (Vercel; the backend keeps its data in memory, so submitted projects can disappear between requests, see [Deploy to Vercel](#deploy-to-vercel))
+**Live demo:** [blue-carbon-registry-blockchain.vercel.app](https://blue-carbon-registry-blockchain.vercel.app) (Vercel; the backend keeps its data in memory, so submitted projects can disappear between requests, see [Deploy to Vercel](#deploy-to-vercel))
 
+[![Live demo](https://img.shields.io/badge/Live%20demo-Vercel-000000?logo=vercel)](https://blue-carbon-registry-blockchain.vercel.app)
 ![CI](https://github.com/08pranav/blue-carbon-registry-blockchain/actions/workflows/ci.yml/badge.svg)
 ![Solidity](https://img.shields.io/badge/Solidity-0.8.20-363636?logo=solidity)
 ![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black)
@@ -194,7 +195,7 @@ To publish a new version: `docker login`, then `docker buildx build --platform l
 
 1. At vercel.com/new import `08pranav/Blue-Carbon-Registry-blockchain`. Vercel should detect the two services from `vercel.json` (click **Refresh** if it still asks for configuration).
 2. Deploy. No environment variables are required. Optional: `VITE_NGO_WALLET` / `VITE_AUDITOR_WALLET` / `VITE_COMPANY_WALLET` (build-time), `DEMO_NGO_WALLET`, `DEFAULT_PRICE_ETH`.
-3. Check `https://<your-app>.vercel.app/api/health` returns `{"status":"OK",...}` and that reloading `/login` still works.
+3. Check `https://blue-carbon-registry-blockchain.vercel.app/api/health` (or your own deployment's URL) returns `{"status":"OK",...}` and that reloading `/login` still works.
 
 Or from the CLI: `npm i -g vercel && vercel login && vercel --prod`.
 
