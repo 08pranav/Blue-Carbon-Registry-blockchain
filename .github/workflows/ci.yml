@@ -16,10 +16,15 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
       - run: npm run test:ci
       - run: npm run build
       - name: Backend install
         run: npm ci
+        working-directory: backend
+      - name: Backend tests
+        run: npm test
         working-directory: backend
 
   contracts:

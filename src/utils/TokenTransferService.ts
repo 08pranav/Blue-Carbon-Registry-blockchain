@@ -1,11 +1,26 @@
 import { ethers } from 'ethers';
-import { BLOCKCHAIN_CONFIG } from '../blockchain-integration/config';
-import { FIXED_WALLETS } from './fixedWallets.js';
+import { BLOCKCHAIN_CONFIG, getTxUrl } from '../blockchain-integration/config';
+import { FIXED_WALLETS } from './fixedWallets';
+import { errorCode, errorMessage, isUserRejection } from '@/lib/errors';
 
 export class TokenTransferService {
   private provider: ethers.BrowserProvider | null = null;
   private signer: ethers.Signer | null = null;
   private tokenContract: ethers.Contract | null = null;
+  private readProvider: ethers.JsonRpcProvider | null = null;
+
+  /** Read-only provider on the configured network's public RPC: no wallet prompt needed. */
+  private getReadProvider(): ethers.JsonRpcProvider {
+    if (!this.readProvider) {
+      const { rpcUrls, chainId } = BLOCKCHAIN_CONFIG.NETWORK_CONFIG;
+      this.readProvider = new ethers.JsonRpcProvider(rpcUrls[0], chainId, { staticNetwork: true });
+    }
+    return this.readProvider;
+  }
+
+  private getReadToken(): ethers.Contract {
+    return new ethers.Contract(BLOCKCHAIN_CONFIG.TOKEN_ADDRESS, BLOCKCHAIN_CONFIG.TOKEN_ABI, this.getReadProvider());
+  }
 
   async initialize() {
     if (!window.ethereum) {
@@ -43,7 +58,7 @@ export class TokenTransferService {
       console.log(`✅ Contract verified: ${name} (${symbol}) at ${BLOCKCHAIN_CONFIG.TOKEN_ADDRESS}`);
     } catch (error) {
       console.error('❌ Contract verification failed:', error);
-      throw new Error(`Contract not accessible: ${error.message}`);
+      throw new Error(`Contract not accessible: ${errorMessage(error)}`);
     }
   }
 
@@ -54,9 +69,9 @@ export class TokenTransferService {
         method: 'wallet_switchEthereumChain',
         params: [{ chainId: BLOCKCHAIN_CONFIG.NETWORK_CONFIG.chainIdHex }],
       });
-    } catch (switchError: any) {
+    } catch (switchError) {
       // If Sepolia is not added to MetaMask, add it
-      if (switchError.code === 4902) {
+      if (errorCode(switchError) === 4902) {
         try {
           await window.ethereum.request({
             method: 'wallet_addEthereumChain',
@@ -77,43 +92,18 @@ export class TokenTransferService {
     }
   }
 
-  async verifyContract() {
-    try {
-      const code = await this.provider!.getCode(BLOCKCHAIN_CONFIG.TOKEN_ADDRESS);
-      if (code === '0x') {
-        throw new Error(`❌ Contract not deployed at address: ${BLOCKCHAIN_CONFIG.TOKEN_ADDRESS}\n\nThis usually means:\n• Contract hasn't been deployed to Sepolia testnet\n• Wrong contract address in config\n• Not connected to the right network`);
-      }
-      
-      // Try to call a view function to verify contract works
-      const name = await this.tokenContract!.name();
-      console.log(`✅ Contract verified: ${name} at ${BLOCKCHAIN_CONFIG.TOKEN_ADDRESS}`);
-      
-      // Check if connected wallet has minting permissions
-      try {
-        const connectedAddress = await this.signer!.getAddress();
-        const owner = await this.tokenContract!.owner();
-        
-        if (connectedAddress.toLowerCase() !== owner.toLowerCase()) {
-          console.warn(`⚠️ Warning: Connected wallet (${connectedAddress}) is not the contract owner (${owner}). Minting may fail due to permissions.`);
-        } else {
-          console.log(`✅ Connected wallet is contract owner - minting permissions verified`);
-        }
-      } catch (permError) {
-        console.warn(`⚠️ Could not verify minting permissions:`, permError);
-      }
-      
-    } catch (error: any) {
-      console.error('Contract verification failed:', error);
-      throw new Error(`Contract verification failed: ${error.message}`);
-    }
-  }
-
   /**
-   * Mint tokens to NGO wallet when auditor approves project
+   * Issue BCC to an NGO when the auditor approves a project.
+   *
+   * The Marketplace contract owns the token, so the only way to mint is
+   * Marketplace.verifyNGO(ngoId, Verified, amount), which only the Marketplace admin
+   * (the auditor wallet) may call. If the NGO has no on-chain record yet, the auditor
+   * registers it first (registerNGO is open to anyone).
    */
-  async mintCreditsToNGO(ngoAddress: string, creditAmount: number, auditorAddress: string): Promise<{
+  async mintCreditsToNGO(ngoAddress: string, creditAmount: number, auditorAddress: string, ngoName = 'NGO'): Promise<{
     success: boolean;
     txHash?: string;
+    registerTxHash?: string;
     error?: string;
     ngoWallet?: string;
     auditorWallet?: string;
@@ -121,83 +111,62 @@ export class TokenTransferService {
     try {
       await this.initialize();
 
-      // Validate that the connected wallet is the auditor
       const connectedAddress = await this.signer!.getAddress();
       if (connectedAddress.toLowerCase() !== auditorAddress.toLowerCase()) {
-        throw new Error(`Please connect the auditor wallet: ${auditorAddress}`);
+        throw new Error(`Wrong wallet connected. Please connect the auditor wallet: ${auditorAddress}`);
       }
 
-      // Convert credits to wei (tokens have 18 decimals)
+      const marketplace = new ethers.Contract(
+        BLOCKCHAIN_CONFIG.MARKETPLACE_ADDRESS,
+        BLOCKCHAIN_CONFIG.MARKETPLACE_ABI,
+        this.signer
+      );
+
+      // Only the Marketplace admin can issue credits, and only if the Marketplace owns the token.
+      const [admin, tokenOwner] = await Promise.all([marketplace.admin(), this.tokenContract!.owner()]);
+      if (admin.toLowerCase() !== connectedAddress.toLowerCase()) {
+        throw new Error(`The connected wallet is not the Marketplace admin (${admin}). Only the admin can issue credits.`);
+      }
+      if (tokenOwner.toLowerCase() !== BLOCKCHAIN_CONFIG.MARKETPLACE_ADDRESS.toLowerCase()) {
+        throw new Error(`The BCC token is owned by ${tokenOwner}, not the Marketplace, so credits cannot be issued. Transfer token ownership to the Marketplace (see the deploy scripts).`);
+      }
+
       const amountWei = ethers.parseEther(creditAmount.toString());
 
-      console.log(`🔄 Minting ${creditAmount} tokens to NGO wallet: ${ngoAddress}`);
-      console.log(`� Amount in Wei: ${amountWei.toString()}`);
-      console.log(`🔗 Contract Address: ${BLOCKCHAIN_CONFIG.TOKEN_ADDRESS}`);
-
-      // Try to estimate gas first to catch errors early
-      let gasEstimate;
-      try {
-        gasEstimate = await this.tokenContract!.mint.estimateGas(ngoAddress, amountWei);
-        console.log(`⛽ Estimated gas: ${gasEstimate.toString()}`);
-      } catch (gasError: any) {
-        console.error('Gas estimation failed:', gasError);
-        throw new Error(`Gas estimation failed: ${gasError.message || gasError.reason || 'Unknown gas error'}`);
+      // 1. Make sure the NGO has an on-chain record
+      let registerTxHash: string | undefined;
+      let ngoId: bigint = await marketplace.ngoIdByWallet(ngoAddress);
+      if (ngoId === 0n) {
+        const registerTx = await marketplace.registerNGO(ngoAddress, ngoName, `project-approval-${Date.now()}`);
+        await registerTx.wait();
+        registerTxHash = registerTx.hash;
+        ngoId = await marketplace.ngoIdByWallet(ngoAddress);
       }
 
-      // Add some buffer to gas limit (20% more)
-      const gasLimit = (gasEstimate * BigInt(120)) / BigInt(100);
-
-      // Execute the mint transaction with explicit gas limit
-      const tx = await this.tokenContract!.mint(ngoAddress, amountWei, {
-        gasLimit: gasLimit
-      });
-      
-      console.log(`📝 Transaction submitted: ${tx.hash}`);
-      
-      // Wait for transaction confirmation
+      // 2. Verify the NGO and mint the credits in one transaction (2 = Verified)
+      const tx = await marketplace.verifyNGO(ngoId, 2, amountWei);
       const receipt = await tx.wait();
-      
-      console.log(`✅ Tokens minted successfully! TX: ${receipt.hash}`);
 
       return {
         success: true,
         txHash: receipt.hash,
+        registerTxHash,
         ngoWallet: ngoAddress,
         auditorWallet: auditorAddress
       };
+    } catch (error) {
+      console.error('Issuing credits failed:', error);
 
-    } catch (error: any) {
-      console.error('Token minting failed:', error);
-      
-      // Parse common error messages
-      let errorMessage = error.message || 'Unknown error';
-      
-      if (errorMessage.includes('execution reverted')) {
-        if (errorMessage.includes('estimateGas')) {
-          errorMessage = `🚫 Contract Error: Gas estimation failed\n\nThis usually means:\n• Contract not properly deployed on Sepolia\n• Auditor wallet lacks minting permissions\n• Contract address is incorrect\n\n➡️ Falling back to demo mode...`;
-        } else if (errorMessage.includes('unknown custom error')) {
-          errorMessage = `🚫 Contract Execution Failed\n\nPossible causes:\n• No minting permissions for this wallet\n• Contract has bugs or restrictions\n• Invalid parameters\n\n➡️ Falling back to demo mode...`;
-        } else {
-          errorMessage = `🚫 Transaction Reverted\n\nCheck:\n• Contract permissions\n• Network connection\n• Wallet permissions\n\n➡️ Falling back to demo mode...`;
-        }
-      } else if (errorMessage.includes('user rejected')) {
-        errorMessage = 'Transaction was rejected by user';
-      } else if (errorMessage.includes('insufficient funds')) {
-        errorMessage = 'Insufficient ETH for gas fees - need Sepolia testnet ETH';
-      } else if (errorMessage.includes('Contract not deployed')) {
-        errorMessage = `🚫 Contract Not Found\n\nThe carbon credit contract is not deployed at:\n${BLOCKCHAIN_CONFIG.TOKEN_ADDRESS}\n\n➡️ Using demo mode instead...`;
-      } else if (errorMessage.includes('Contract verification failed')) {
-        errorMessage = `🚫 Contract Verification Failed\n\nCannot connect to carbon credit contract.\n\n➡️ Using demo mode instead...`;
-      }
-      
-      // Add specific Sepolia troubleshooting info
-      if (BLOCKCHAIN_CONFIG.NETWORK_CONFIG.chainName.includes('Sepolia')) {
-        errorMessage += `\n\n🌐 Sepolia Testnet Issue:\n• Contract deployed at: ${BLOCKCHAIN_CONFIG.TOKEN_ADDRESS}\n• Make sure MetaMask is on Sepolia network\n• Auditor needs minting permissions from contract owner`;
+      let userMessage = errorMessage(error) || 'Unknown error';
+      if (userMessage.includes('user rejected')) {
+        userMessage = 'Transaction was rejected by user';
+      } else if (userMessage.includes('insufficient funds')) {
+        userMessage = 'Insufficient ETH for gas fees - need Sepolia testnet ETH';
       }
 
       return {
         success: false,
-        error: errorMessage,
+        error: userMessage,
         ngoWallet: ngoAddress,
         auditorWallet: auditorAddress
       };
@@ -256,10 +225,10 @@ export class TokenTransferService {
         estimatedGas: "0.001"
       };
       
-    } catch (error: any) {
+    } catch (error) {
       return {
         success: false,
-        error: `Pre-flight check failed: ${error.message}`
+        error: `Pre-flight check failed: ${errorMessage(error)}`
       };
     }
   }
@@ -326,7 +295,7 @@ export class TokenTransferService {
         throw new Error(`Insufficient balance. Need ${ethers.formatEther(requiredAmount)} ETH, have ${ethers.formatEther(currentBalance)} ETH`);
       }
       
-      // Execute trade through marketplace (pays NGO in ETH + mints BCC to Company)
+      // Execute trade through marketplace (pays the NGO in ETH, moves BCC from NGO to Company)
       console.log(`🏪 REAL TRANSACTION: Executing trade through marketplace contract`);
       console.log(`📦 Credits: ${creditAmount} BCC`);
       console.log(`💰 Payment: ${paymentAmountETH} ETH`);
@@ -375,7 +344,7 @@ export class TokenTransferService {
           paymentTx: tradeTx.hash,
           companyWallet: companyAddress, 
           ngoWallet: ngoAddress,
-          message: `✅ MARKETPLACE TRADE COMPLETE!\n\n💰 ETH Payment: ${paymentAmountETH} ETH sent to NGO\n🪙 BCC Tokens: ${creditAmount} BCC minted to Company\n\n🔗 Trade TX: ${tradeTx.hash}\n🔍 View on Etherscan: https://sepolia.etherscan.io/tx/${tradeTx.hash}`,
+          message: `✅ MARKETPLACE TRADE COMPLETE!\n\n💰 ETH Payment: ${paymentAmountETH} ETH sent to NGO\n🪙 BCC Tokens: ${creditAmount} BCC transferred from the NGO to the Company\n\n🔗 Trade TX: ${tradeTx.hash}\n🔍 View on the block explorer: ${getTxUrl(tradeTx.hash) || '(local chain)'}`,
           balances: {
             companyETH: ethers.formatEther(companyETHBalance),
             companyBCC: ethers.formatEther(companyTokenBalance),
@@ -383,32 +352,32 @@ export class TokenTransferService {
           }
         };
         
-      } catch (marketplaceError: any) {
+      } catch (marketplaceError) {
         console.error('❌ Marketplace trade failed:', marketplaceError);
         throw marketplaceError;
       }
 
-    } catch (error: any) {
+    } catch (error) {
       console.error('Token transfer failed:', error);
       
       // Parse common error messages
-      let errorMessage = error.message || 'Unknown error';
+      let userMessage = errorMessage(error) || 'Unknown error';
       
-      if (errorMessage.includes('execution reverted')) {
-        if (errorMessage.includes('estimateGas')) {
-          errorMessage = `🚫 Transaction Failed: Gas estimation failed\n\nThis usually means:\n• Insufficient ETH balance\n• Contract not properly deployed\n• Invalid transaction parameters\n\n➡️ Please check your wallet balance and try again`;
+      if (userMessage.includes('execution reverted')) {
+        if (userMessage.includes('estimateGas')) {
+          userMessage = `🚫 Transaction Failed: Gas estimation failed\n\nThis usually means:\n• Insufficient ETH balance\n• Contract not properly deployed\n• Invalid transaction parameters\n\n➡️ Please check your wallet balance and try again`;
         } else {
-          errorMessage = `🚫 Transaction Reverted\n\nPossible causes:\n• Insufficient balance\n• Contract restrictions\n• Network congestion\n\n➡️ Please try again`;
+          userMessage = `🚫 Transaction Reverted\n\nPossible causes:\n• Insufficient balance\n• Contract restrictions\n• Network congestion\n\n➡️ Please try again`;
         }
-      } else if (errorMessage.includes('user rejected')) {
-        errorMessage = 'Transaction was rejected by user';
-      } else if (errorMessage.includes('insufficient funds')) {
-        errorMessage = 'Insufficient ETH for gas fees - need Sepolia testnet ETH';
+      } else if (userMessage.includes('user rejected')) {
+        userMessage = 'Transaction was rejected by user';
+      } else if (userMessage.includes('insufficient funds')) {
+        userMessage = 'Insufficient ETH for gas fees - need Sepolia testnet ETH';
       }
 
       return {
         success: false,
-        error: errorMessage,
+        error: userMessage,
         companyWallet: companyAddress,
         ngoWallet: ngoAddress
       };
@@ -426,8 +395,8 @@ export class TokenTransferService {
       const tx = await this.tokenContract!.approve(BLOCKCHAIN_CONFIG.MARKETPLACE_ADDRESS, amount);
       await tx.wait();
       return { success: true, txHash: tx.hash };
-    } catch (error: any) {
-      const msg = error?.message?.includes('user rejected') ? 'Transaction was rejected by user' : (error?.message || 'Approval failed');
+    } catch (error) {
+      const msg = isUserRejection(error) ? 'Transaction was rejected by user' : (errorMessage(error) || 'Approval failed');
       return { success: false, error: msg };
     }
   }
@@ -437,8 +406,7 @@ export class TokenTransferService {
    */
   async getMarketplaceAllowance(ownerAddress: string): Promise<string> {
     try {
-      await this.initialize();
-      const allowance = await this.tokenContract!.allowance(ownerAddress, BLOCKCHAIN_CONFIG.MARKETPLACE_ADDRESS);
+      const allowance = await this.getReadToken().allowance(ownerAddress, BLOCKCHAIN_CONFIG.MARKETPLACE_ADDRESS);
       return ethers.formatEther(allowance);
     } catch (error) {
       console.error('Failed to get allowance:', error);
@@ -451,8 +419,7 @@ export class TokenTransferService {
    */
   async getTokenBalance(address: string): Promise<string> {
     try {
-      await this.initialize();
-      const balance = await this.tokenContract!.balanceOf(address);
+      const balance = await this.getReadToken().balanceOf(address);
       return ethers.formatEther(balance);
     } catch (error) {
       console.error('Failed to get token balance:', error);
@@ -465,8 +432,7 @@ export class TokenTransferService {
    */
   async getETHBalance(address: string): Promise<string> {
     try {
-      if (!this.provider) await this.initialize();
-      const balance = await this.provider!.getBalance(address);
+      const balance = await this.getReadProvider().getBalance(address);
       return ethers.formatEther(balance);
     } catch (error) {
       console.error('Failed to get ETH balance:', error);

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { Suspense, lazy } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -9,11 +9,17 @@ import { BlockchainProvider } from "./contexts/BlockchainContext";
 import SimpleHeader from "./components/SimpleHeader";
 import SimpleHome from "./pages/SimpleHome";
 import Login from "./pages/Login";
-import NGODashboard from "./pages/NGODashboard";
-import AuditorDashboard from "./pages/AuditorDashboard";
-import CompanyDashboard from "./pages/CompanyDashboard";
-import AuthDemo from "./pages/AuthDemo";
 import NotFound from "./pages/NotFound";
+
+// The dashboards pull in ethers and most of the UI kit, so load them on demand
+const NGODashboard = lazy(() => import("./pages/NGODashboard"));
+const AuditorDashboard = lazy(() => import("./pages/AuditorDashboard"));
+const CompanyDashboard = lazy(() => import("./pages/CompanyDashboard"));
+const AuthDemo = lazy(() => import("./pages/AuthDemo"));
+
+const PageFallback = () => (
+  <div className="flex min-h-[50vh] items-center justify-center text-gray-500" role="status">Loading…</div>
+);
 
 const queryClient = new QueryClient();
 
@@ -97,7 +103,9 @@ const App = () => (
           <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
             <div className="min-h-screen bg-background">
               <SimpleHeader />
-              <AppRoutes />
+              <Suspense fallback={<PageFallback />}>
+                <AppRoutes />
+              </Suspense>
             </div>
           </BrowserRouter>
         </BlockchainProvider>

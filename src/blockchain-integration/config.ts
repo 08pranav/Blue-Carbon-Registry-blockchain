@@ -19,10 +19,11 @@ export const NETWORKS = {
     }
   },
   LOCAL: {
-    chainId: 1337,
-    chainIdHex: "0x539",
-    chainName: "Ganache Local",
-    rpcUrls: ["http://127.0.0.1:7545"],
+    // Hardhat node (`npx hardhat node`) default chain id
+    chainId: 31337,
+    chainIdHex: "0x7a69",
+    chainName: "Hardhat Local",
+    rpcUrls: [import.meta.env.VITE_LOCAL_RPC_URL || "http://127.0.0.1:8545"],
     blockExplorerUrls: [],
     nativeCurrency: {
       name: "ETH",
@@ -38,14 +39,16 @@ export const CONTRACT_ADDRESSES = {
     CARBON_CREDIT_TOKEN: "0x025614e8Dc0b1eb488604D6f6C85982b85f9665B",
     MARKETPLACE: "0x4510c03bAb31E60fd99839A6eA3685f83dd3479D"
   },
+  // Filled in by `npm run deploy:local` (it writes .env.local). Defaults are the addresses a
+  // fresh `npx hardhat node` produces for the first two deployments from account #0.
   LOCAL: {
-    CARBON_CREDIT_TOKEN: "0xE6E340D132b5f46d1e472DebcD681B2aBc16e57E",
-    MARKETPLACE: "0xc3e53F4d16Ae77Db1c982e75a937B9f60FE63690"
+    CARBON_CREDIT_TOKEN: import.meta.env.VITE_LOCAL_TOKEN_ADDRESS || "0x5FbDB2315678afecb367f032d93F642f64180aa3",
+    MARKETPLACE: import.meta.env.VITE_LOCAL_MARKETPLACE_ADDRESS || "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512"
   }
 };
 
-// Current Network - Using Sepolia Testnet for real blockchain
-export const CURRENT_NETWORK = "SEPOLIA";
+// Current network: Sepolia unless VITE_NETWORK=LOCAL (see .env.example)
+export const CURRENT_NETWORK: "SEPOLIA" | "LOCAL" = import.meta.env.VITE_NETWORK === "LOCAL" ? "LOCAL" : "SEPOLIA";
 
 // Contract ABIs (minimal for basic functionality)
 export const CARBON_CREDIT_TOKEN_ABI = [
@@ -61,7 +64,8 @@ export const CARBON_CREDIT_TOKEN_ABI = [
   "function symbol() view returns (string)",
   "function owner() view returns (address)",
   "event Transfer(address indexed from, address indexed to, uint256 value)",
-  "event Approval(address indexed owner, address indexed spender, uint256 value)"
+  "event Approval(address indexed owner, address indexed spender, uint256 value)",
+  "event OwnershipTransferred(address indexed previousOwner, address indexed newOwner)"
 ];
 
 export const MARKETPLACE_ABI = [
@@ -73,6 +77,8 @@ export const MARKETPLACE_ABI = [
   "function getCompanyById(uint256 id) view returns (tuple(uint256 companyId, address wallet, string name, string kycHash))",
   "function getTradeById(uint256 id) view returns (tuple(uint256 tradeId, address seller, address buyer, uint256 amount, uint256 price, string pdfHash, uint256 timestamp))",
   "function admin() view returns (address)",
+  "function setAdmin(address newAdmin)",
+  "function ngoIdByWallet(address wallet) view returns (uint256)",
   "function token() view returns (address)",
   "function nextNgoId() view returns (uint256)",
   "function nextCompanyId() view returns (uint256)",
@@ -100,4 +106,10 @@ export const getCurrentNetworkConfig = () => {
 
 export const getCurrentContractAddresses = () => {
   return CONTRACT_ADDRESSES[CURRENT_NETWORK as keyof typeof CONTRACT_ADDRESSES];
+};
+
+/** Block-explorer link for a transaction on the current network ('' on a local chain). */
+export const getTxUrl = (txHash: string): string => {
+  const base = getCurrentNetworkConfig().blockExplorerUrls[0];
+  return base ? `${base}/tx/${txHash}` : '';
 };

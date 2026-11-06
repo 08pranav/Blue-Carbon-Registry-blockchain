@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { FIXED_WALLETS } from '../utils/fixedWallets.js';
+import { FIXED_WALLETS } from '../utils/fixedWallets';
 
 export type UserRole = 'NGO' | 'AUDITOR' | 'COMPANY';
 

@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { web3Helper } from '../blockchain-integration/utils/web3Helper';
+import { web3Helper, type NgoRecord } from '../blockchain-integration/utils/web3Helper';
+import { getCurrentNetworkConfig } from '../blockchain-integration/config';
+import { errorMessage } from '@/lib/errors';
 import { toast } from 'sonner';
 
 interface BlockchainContextType {
@@ -7,16 +9,16 @@ interface BlockchainContextType {
   walletAddress: string | null;
   ethBalance: string;
   tokenBalance: string;
-  networkInfo: any;
+  networkInfo: ReturnType<typeof getCurrentNetworkConfig> | null;
   connecting: boolean;
   connectWallet: () => Promise<void>;
   disconnectWallet: () => void;
-  refreshBalances: () => Promise<void>;
+  refreshBalances: (address?: string | null) => Promise<void>;
   registerNGO: (name: string, documentsHash: string) => Promise<{ success: boolean; txHash?: string; error?: string }>;
   registerCompany: (name: string, kycHash: string) => Promise<{ success: boolean; txHash?: string; error?: string }>;
   verifyNGO: (ngoId: string, approved: boolean, creditsToAllocate?: string) => Promise<{ success: boolean; txHash?: string; error?: string }>;
   executeTrade: (sellerAddress: string, amount: string, price: string, pdfHash: string) => Promise<{ success: boolean; txHash?: string; error?: string }>;
-  getNGOByWallet: (walletAddress: string) => Promise<any>;
+  getNGOByWallet: (walletAddress: string) => Promise<NgoRecord | null>;
 }
 
 const BlockchainContext = createContext<BlockchainContextType | undefined>(undefined);
@@ -30,13 +32,14 @@ export const BlockchainProvider: React.FC<BlockchainProviderProps> = ({ children
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
   const [ethBalance, setEthBalance] = useState('0');
   const [tokenBalance, setTokenBalance] = useState('0');
-  const [networkInfo, setNetworkInfo] = useState(null);
+  const [networkInfo, setNetworkInfo] = useState<ReturnType<typeof getCurrentNetworkConfig> | null>(null);
   const [connecting, setConnecting] = useState(false);
 
   // Initialize blockchain connection on mount
   useEffect(() => {
     checkExistingConnection();
     setupEventListeners();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- run once on mount
   }, []);
 
   // Check if wallet is already connected
@@ -47,7 +50,7 @@ export const BlockchainProvider: React.FC<BlockchainProviderProps> = ({ children
         setWalletAddress(address);
         setIsConnected(true);
         setNetworkInfo(web3Helper.getNetworkInfo());
-        await refreshBalances();
+        await refreshBalances(address);
       }
     } catch (error) {
       console.error('Error checking existing connection:', error);
@@ -58,17 +61,18 @@ export const BlockchainProvider: React.FC<BlockchainProviderProps> = ({ children
   const setupEventListeners = () => {
     if (typeof window !== 'undefined' && window.ethereum) {
       // Account changed
-      window.ethereum.on('accountsChanged', (accounts: string[]) => {
+      window.ethereum.on?.('accountsChanged', (...args: unknown[]) => {
+        const accounts = args[0] as string[];
         if (accounts.length === 0) {
           disconnectWallet();
         } else {
           setWalletAddress(accounts[0]);
-          refreshBalances();
+          refreshBalances(accounts[0]);
         }
       });
 
       // Chain changed
-      window.ethereum.on('chainChanged', (chainId: string) => {
+      window.ethereum.on?.('chainChanged', () => {
         // Reload the page to reset state
         window.location.reload();
       });
@@ -85,14 +89,14 @@ export const BlockchainProvider: React.FC<BlockchainProviderProps> = ({ children
         setIsConnected(true);
         setWalletAddress(result.address);
         setNetworkInfo(web3Helper.getNetworkInfo());
-        await refreshBalances();
+        await refreshBalances(result.address);
         toast.success('Wallet connected successfully!');
       } else {
         toast.error(result.error || 'Failed to connect wallet');
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error('Connect wallet error:', error);
-      toast.error(error.message || 'Failed to connect wallet');
+      toast.error(errorMessage(error) || 'Failed to connect wallet');
     } finally {
       setConnecting(false);
     }
@@ -110,13 +114,13 @@ export const BlockchainProvider: React.FC<BlockchainProviderProps> = ({ children
   };
 
   // Refresh balances
-  const refreshBalances = async () => {
-    if (!walletAddress) return;
+  const refreshBalances = async (address: string | null = walletAddress) => {
+    if (!address) return;
 
     try {
       const [ethBal, tokenBal] = await Promise.all([
-        web3Helper.getEthBalance(walletAddress),
-        web3Helper.getTokenBalance(walletAddress)
+        web3Helper.getEthBalance(address),
+        web3Helper.getTokenBalance(address)
       ]);
       
       setEthBalance(ethBal);
@@ -137,8 +141,8 @@ export const BlockchainProvider: React.FC<BlockchainProviderProps> = ({ children
         toast.error(result.error || 'Failed to register NGO');
       }
       return result;
-    } catch (error: any) {
-      let errorMsg = error.message || 'Failed to register NGO';
+    } catch (error) {
+      let errorMsg = errorMessage(error) || 'Failed to register NGO';
       
       // Handle specific "already registered" error
       if (errorMsg.includes('already registered')) {
@@ -163,8 +167,8 @@ export const BlockchainProvider: React.FC<BlockchainProviderProps> = ({ children
         toast.error(result.error || 'Failed to register company');
       }
       return result;
-    } catch (error: any) {
-      const errorMsg = error.message || 'Failed to register company';
+    } catch (error) {
+      const errorMsg = errorMessage(error) || 'Failed to register company';
       toast.error(errorMsg);
       return { success: false, error: errorMsg };
     }
@@ -181,8 +185,8 @@ export const BlockchainProvider: React.FC<BlockchainProviderProps> = ({ children
         toast.error(result.error || 'Failed to verify NGO');
       }
       return result;
-    } catch (error: any) {
-      const errorMsg = error.message || 'Failed to verify NGO';
+    } catch (error) {
+      const errorMsg = errorMessage(error) || 'Failed to verify NGO';
       toast.error(errorMsg);
       return { success: false, error: errorMsg };
     }
@@ -199,8 +203,8 @@ export const BlockchainProvider: React.FC<BlockchainProviderProps> = ({ children
         toast.error(result.error || 'Failed to execute trade');
       }
       return result;
-    } catch (error: any) {
-      const errorMsg = error.message || 'Failed to execute trade';
+    } catch (error) {
+      const errorMsg = errorMessage(error) || 'Failed to execute trade';
       toast.error(errorMsg);
       return { success: false, error: errorMsg };
     }
@@ -210,7 +214,7 @@ export const BlockchainProvider: React.FC<BlockchainProviderProps> = ({ children
   const getNGOByWallet = async (walletAddress: string) => {
     try {
       return await web3Helper.getNGOByWallet(walletAddress);
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error getting NGO:', error);
       throw error;
     }

@@ -2,8 +2,10 @@ import hre from "hardhat";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from 'url';
+import { createRequire } from "module";
 
 const { ethers } = hre;
+const { deployCore } = createRequire(import.meta.url)("./deployCore.cjs");
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -24,26 +26,12 @@ async function main() {
   }
 
   try {
-    // Deploy CarbonCreditToken
-    console.log("\n🪙 Deploying CarbonCreditToken...");
-    const Token = await ethers.getContractFactory("CarbonCreditToken");
-    const token = await Token.deploy(deployer.address);
-    await token.waitForDeployment();
-    
-    const tokenAddress = await token.getAddress();
+    console.log("\n🪙🏪 Deploying CarbonCreditToken + Marketplace, then handing token ownership to the Marketplace...");
+    const { token, marketplace, tokenAddress, marketplaceAddress, transferOwnershipTx } = await deployCore(ethers, deployer);
     console.log("✅ CarbonCreditToken deployed to:", tokenAddress);
-
-    // Deploy Marketplace
-    console.log("\n🏪 Deploying Marketplace...");
-    const Marketplace = await ethers.getContractFactory("Marketplace");
-    const marketplace = await Marketplace.deploy(tokenAddress);
-    await marketplace.waitForDeployment();
-    
-    const marketplaceAddress = await marketplace.getAddress();
     console.log("✅ Marketplace deployed to:", marketplaceAddress);
-
-    // Admin keeps ownership of token for minting control
-    console.log("\n✅ Admin retains token ownership for verification & minting");
+    console.log("✅ Token ownership transferred to the Marketplace (tx " + transferOwnershipTx + ")");
+    console.log("   Mint BCC with Marketplace.verifyNGO() from the admin wallet:", deployer.address);
 
     // Save deployment addresses
     const deploymentInfo = {
@@ -63,8 +51,11 @@ async function main() {
       },
       transactionHashes: {
         tokenDeployment: token.deploymentTransaction()?.hash,
-        marketplaceDeployment: marketplace.deploymentTransaction()?.hash
-      }
+        marketplaceDeployment: marketplace.deploymentTransaction()?.hash,
+        tokenOwnershipTransfer: transferOwnershipTx
+      },
+      tokenOwner: marketplaceAddress,
+      marketplaceAdmin: deployer.address
     };
 
     // Write to deployment file
@@ -80,16 +71,12 @@ async function main() {
     const frontendConfigPath = path.join(__dirname, "../../src/blockchain-integration/config.ts");
     let configContent = fs.readFileSync(frontendConfigPath, "utf8");
     
-    // Replace the empty contract addresses with deployed addresses
+    // Replace the addresses inside the SEPOLIA block of the frontend config
     configContent = configContent.replace(
-      'CARBON_CREDIT_TOKEN: "",',
-      `CARBON_CREDIT_TOKEN: "${tokenAddress}",`
+      /(SEPOLIA:\s*\{\s*CARBON_CREDIT_TOKEN:\s*")[^"]*(",\s*MARKETPLACE:\s*")[^"]*(")/,
+      `$1${tokenAddress}$2${marketplaceAddress}$3`
     );
-    configContent = configContent.replace(
-      'MARKETPLACE: ""',
-      `MARKETPLACE: "${marketplaceAddress}"`
-    );
-    
+
     fs.writeFileSync(frontendConfigPath, configContent);
 
     console.log("\n🎉 Deployment Complete!");
@@ -101,7 +88,7 @@ async function main() {
     console.log("   Deployment Info:", deploymentFile);
     console.log("   Frontend Config:", frontendConfigPath);
     console.log("\n🔍 Verify Contracts:");
-    console.log(`   npx hardhat verify --network sepolia ${tokenAddress} "BlueCarbonCredit" "BCC" "${deployer.address}"`);
+    console.log(`   npx hardhat verify --network sepolia ${tokenAddress} "${deployer.address}"`);
     console.log(`   npx hardhat verify --network sepolia ${marketplaceAddress} ${tokenAddress}`);
     console.log("\n🌐 View on Etherscan:");
     console.log(`   Token: https://sepolia.etherscan.io/address/${tokenAddress}`);
