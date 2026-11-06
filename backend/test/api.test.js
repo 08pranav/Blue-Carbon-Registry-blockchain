@@ -6,6 +6,10 @@ const os = require('node:os');
 const path = require('node:path');
 
 process.env.UPLOADS_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'bcr-uploads-'));
+// a tiny stand-in for the built frontend, to test static serving and the SPA fallback
+const staticDir = fs.mkdtempSync(path.join(os.tmpdir(), 'bcr-static-'));
+fs.writeFileSync(path.join(staticDir, 'index.html'), '<!doctype html><title>spa</title>');
+process.env.STATIC_DIR = staticDir;
 const sharp = require('sharp');
 const app = require('../app');
 
@@ -21,7 +25,7 @@ before(async () => {
   await new Promise(resolve => { server = app.listen(0, resolve); });
   base = `http://127.0.0.1:${server.address().port}`;
 });
-after(() => { server.close(); fs.rmSync(process.env.UPLOADS_DIR, { recursive: true, force: true }); });
+after(() => { server.close(); fs.rmSync(process.env.UPLOADS_DIR, { recursive: true, force: true }); fs.rmSync(staticDir, { recursive: true, force: true }); });
 
 const json = async (method, url, body) => {
   const res = await fetch(base + url, {
@@ -150,4 +154,15 @@ test('selling out removes the listing from the marketplace', async () => {
   await json('POST', '/api/marketplace/purchase', { listingId: listing.id, quantity: listing.credits, buyerAddress: OTHER, txHash: '0x' + 'ef'.repeat(32) });
   const after = await json('GET', '/api/marketplace/listings');
   assert.equal(after.body.listings.length, 0);
+});
+
+test('serves the built frontend with a SPA fallback, without shadowing the API', async () => {
+  const home = await fetch(base + '/');
+  assert.equal(home.status, 200);
+  assert.match(await home.text(), /<title>spa<\/title>/);
+  const login = await fetch(base + '/login'); // client-side route
+  assert.equal(login.status, 200);
+  assert.match(await login.text(), /<title>spa<\/title>/);
+  assert.equal((await fetch(base + '/api/health')).status, 200);
+  assert.equal((await fetch(base + '/api/does-not-exist')).status, 404);
 });

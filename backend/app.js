@@ -718,6 +718,17 @@ app.get('/api/ai/review/:id', async (req, res) => {
   return res.json({ aiReview });
 });
 
+// Serve the built frontend when it is present (the all-in-one Docker image sets STATIC_DIR).
+// On Vercel the SPA is served by the platform instead, so this stays inactive there.
+const staticDir = process.env.STATIC_DIR || path.join(__dirname, '..', 'dist');
+if (fs.existsSync(path.join(staticDir, 'index.html'))) {
+  app.use(express.static(staticDir));
+  // Client-side routes (/login, /dashboard, ...) fall back to index.html
+  app.get(/^\/(?!api\/|uploads\/).*/, (req, res) => {
+    res.sendFile(path.join(staticDir, 'index.html'));
+  });
+}
+
 // Error handling middleware
 app.use((error, req, res, next) => {
   if (error instanceof multer.MulterError || /^Only images/.test(error.message)) {

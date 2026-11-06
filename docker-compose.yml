@@ -1,28 +1,8 @@
-# Frontend (nginx, :3000) + backend (Express, :3001). The backend keeps its data in memory.
+# One container serves the web app and the API: http://localhost:3000
+# Data is kept in memory (projects and listings reset when the container restarts).
 services:
-  frontend:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: production
+  app:
+    build: .
     ports:
-      - "3000:80"
-    depends_on:
-      - backend
+      - "3000:3001"
     restart: unless-stopped
-
-  backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    ports:
-      - "3001:3001"
-    environment:
-      - NODE_ENV=production
-      - PORT=3001
-    volumes:
-      - uploads:/app/uploads
-    restart: unless-stopped
-
-volumes:
-  uploads:

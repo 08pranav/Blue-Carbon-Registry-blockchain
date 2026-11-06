@@ -4,6 +4,8 @@
 
 NGOs submit coastal restoration projects with photo evidence. Auditors review them and issue ERC-20 carbon credit tokens (**BCC**) on Ethereum. Companies buy those credits with ETH. Every issuance and sale is a public, verifiable on-chain transaction.
 
+**Docker image:** [`08pranav/blue-carbon-registry`](https://hub.docker.com/r/08pranav/blue-carbon-registry) on Docker Hub: `docker run --rm -p 3000:3001 08pranav/blue-carbon-registry`, then open http://localhost:3000
+
 **Live demo:** _coming soon: paste your Vercel URL here after deploying (see [Deploy to Vercel](#deploy-to-vercel))_
 
 ![CI](https://github.com/08pranav/blue-carbon-registry-blockchain/actions/workflows/ci.yml/badge.svg)
@@ -101,7 +103,7 @@ Source: [`blockchain-deployment/contracts`](blockchain-deployment/contracts)
 | Web3 | MetaMask, ethers.js v6 (`BrowserProvider`, read-only `JsonRpcProvider`) |
 | Backend | Node.js, Express, Multer (uploads), exifr + image-size + sharp (evidence screening) |
 | Testing / CI | Vitest + Testing Library, Hardhat + Chai, GitHub Actions |
-| Deploy | Docker / docker-compose + nginx, or Vercel (serverless `api/`) |
+| Deploy | Docker (published image on Docker Hub) or Vercel (serverless `api/`) |
 
 ---
 
@@ -174,9 +176,18 @@ demo/stack.sh stop
 The video files are git-ignored; `demo/demo-preview.gif` and `demo/chapters.txt` are committed.
 
 ### Run with Docker
+One image serves the web app and the API (built for the Sepolia test network, so use MetaMask on Sepolia). Data lives in memory and resets when the container restarts.
+
 ```bash
-docker compose up --build   # frontend on http://localhost:3000 (nginx proxies /api), API on :3001
+# use the published image (linux/amd64 and linux/arm64)
+docker run --rm -p 3000:3001 08pranav/blue-carbon-registry     # http://localhost:3000
+
+# or build it yourself
+docker compose up --build                                       # same URL
 ```
+Image on Docker Hub: https://hub.docker.com/r/08pranav/blue-carbon-registry
+
+To publish a new version: `docker login`, then `docker buildx build --platform linux/amd64,linux/arm64 -t 08pranav/blue-carbon-registry:latest --push .`
 
 ### Deploy to Vercel
 The SPA is built by Vite and the API runs as one serverless function ([`api/index.js`](api/index.js)) that serves the same Express app as `backend/`. [`vercel.json`](vercel.json) installs both dependency sets and rewrites `/api/*` and `/uploads/*` to the function and everything else to `index.html`. The app calls same-origin `/api`, so `VITE_API_BASE_URL` stays empty.
@@ -240,7 +251,8 @@ The contract suite deploys through the same `deployCore()` the deploy scripts us
 ├── blockchain-deployment/       Hardhat project: contracts, deploy scripts, tests
 ├── api/                         Vercel serverless versions of the API
 ├── docs/                        Screenshots + archived design/setup notes
-└── docker-compose.yml           Frontend (nginx) + backend containers
+├── Dockerfile                   All-in-one image: web app + API
+└── docker-compose.yml           Runs that image locally
 ```
 
 ---
