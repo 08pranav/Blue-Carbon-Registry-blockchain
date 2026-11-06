@@ -92,7 +92,7 @@ Source: [`blockchain-deployment/contracts`](blockchain-deployment/contracts)
 |---|---|
 | Smart contracts | Solidity 0.8.20, OpenZeppelin 5, Hardhat, Ethers v6 |
 | Frontend | React 18, TypeScript, Vite, Tailwind CSS, shadcn/ui, TanStack Query, React Router |
-| Web3 | MetaMask, ethers.js (`BrowserProvider`), wagmi/viem |
+| Web3 | MetaMask, ethers.js v6 (`BrowserProvider`, read-only `JsonRpcProvider`) |
 | Backend | Node.js, Express, Multer (uploads), exifr + image-size + sharp (evidence screening) |
 | Testing / CI | Vitest + Testing Library, Hardhat + Chai, GitHub Actions |
 | Deploy | Docker / docker-compose + nginx, or Vercel (serverless `api/`) |

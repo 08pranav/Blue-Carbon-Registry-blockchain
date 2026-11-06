@@ -36,7 +36,7 @@ The app automatically falls back to demo mode when blockchain fails.
 
 1. **Add Sepolia Network**:
    - Network Name: Sepolia Test Network
-   - RPC URL: `https://sepolia.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161`
+   - RPC URL: `https://sepolia.infura.io/v3/YOUR_INFURA_PROJECT_ID`
    - Chain ID: 11155111
    - Symbol: ETH
    - Explorer: https://sepolia.etherscan.io

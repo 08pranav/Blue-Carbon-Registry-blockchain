@@ -39,7 +39,7 @@ Edit `.env` file and add your information:
 SEPOLIA_PRIVATE_KEY=your_sepolia_private_key_here
 
 # Sepolia RPC URL (using public endpoint)  
-SEPOLIA_RPC_URL=https://sepolia.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161
+SEPOLIA_RPC_URL=https://sepolia.infura.io/v3/YOUR_INFURA_PROJECT_ID
 
 # Etherscan API key for contract verification (optional)
 ETHERSCAN_API_KEY=your_etherscan_api_key_here
